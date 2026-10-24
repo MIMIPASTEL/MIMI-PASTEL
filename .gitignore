@@ -1,0 +1,27 @@
+# Entorno — NUNCA subir al repositorio
+.env
+.env.local
+.env*.local
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Herramientas locales (git portable, CLI de Supabase)
+.tools/
+
+# Logs y temporales
+*.log
+*.tsbuildinfo
+next-env.d.ts
