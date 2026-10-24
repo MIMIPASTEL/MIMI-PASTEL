@@ -35,6 +35,10 @@ function Contenido() {
   const [efectivo, setEfectivo] = useState("");
   const [yape, setYape] = useState("");
   const [transferencia, setTransferencia] = useState("");
+  const [descuento, setDescuento] = useState("");
+  const [gastoMonto, setGastoMonto] = useState("");
+  const [gastoConcepto, setGastoConcepto] = useState("");
+  const [gastoCategoria, setGastoCategoria] = useState("movilidad");
   const [mostrarEnviado, setMostrarEnviado] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -140,6 +144,10 @@ function Contenido() {
       if (typeof d.efectivo === "string") setEfectivo(d.efectivo);
       if (typeof d.yape === "string") setYape(d.yape);
       if (typeof d.transferencia === "string") setTransferencia(d.transferencia);
+      if (typeof d.descuento === "string") setDescuento(d.descuento);
+      if (typeof d.gastoMonto === "string") setGastoMonto(d.gastoMonto);
+      if (typeof d.gastoConcepto === "string") setGastoConcepto(d.gastoConcepto);
+      if (typeof d.gastoCategoria === "string") setGastoCategoria(d.gastoCategoria);
     } else {
       setFilas(filasBase);
     }
@@ -154,11 +162,11 @@ function Contenido() {
   useEffect(() => {
     if (!draftListo) return;
     const t = setTimeout(
-      () => guardarBorrador(`mip:ventas:${fecha}:${puntoId}`, { filas, efectivo, yape, transferencia }),
+      () => guardarBorrador(`mip:ventas:${fecha}:${puntoId}`, { filas, efectivo, yape, transferencia, descuento, gastoMonto, gastoConcepto, gastoCategoria }),
       700,
     );
     return () => clearTimeout(t);
-  }, [draftListo, filas, efectivo, yape, transferencia, fecha, puntoId]);
+  }, [draftListo, filas, efectivo, yape, transferencia, descuento, gastoMonto, gastoConcepto, gastoCategoria, fecha, puntoId]);
 
   function setCampo(idx: number, campo: keyof Fila, valor: string) {
     setFilas((f) => f.map((x, i) => (i === idx ? { ...x, [campo]: valor } : x)));
@@ -175,7 +183,11 @@ function Contenido() {
   );
 
   const totalCobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
-  const diferenciaDinero = totalCobrado - totalVendido;
+  const montoDescuento = Number(descuento || 0);
+  const ventaNeta = totalVendido - montoDescuento;
+  const gastoEfectivo = Number(gastoMonto || 0);
+  const efectivoAEntregar = Number(efectivo || 0) - gastoEfectivo;
+  const diferenciaDinero = totalCobrado - ventaNeta;
 
   const puntosInvalidos = useMemo(
     () =>
@@ -297,7 +309,8 @@ function Contenido() {
           punto_venta_id: puntoId,
           turno,
           usuario_id: perfil?.id,
-          total: totalVendido,
+          total: ventaNeta,
+          descuento: montoDescuento,
         })
         .select("id")
         .single();
@@ -342,6 +355,25 @@ function Contenido() {
       );
       if (error) {
         setErr("Pagos: " + error.message);
+        setGuardando(false);
+        return;
+      }
+    }
+
+    if (gastoEfectivo > 0) {
+      const { error: eg } = await supabase.from("movimientos_caja").insert({
+        fecha,
+        tipo: "salida",
+        categoria_codigo: gastoCategoria,
+        monto: gastoEfectivo,
+        medio: "efectivo",
+        turno,
+        concepto: gastoConcepto || "Gasto pagado del efectivo",
+        punto_venta_id: puntoId,
+        creado_por: perfil?.id,
+      });
+      if (eg) {
+        setErr("Gasto: " + eg.message);
         setGuardando(false);
         return;
       }
@@ -491,14 +523,14 @@ function Contenido() {
       </div>
 
       <div className="card">
-        <h2>Dinero cobrado</h2>
+        <h2>Conciliación del día</h2>
         <div className="grid grid-3">
           <div className="field">
-            <label className="f">Efectivo</label>
+            <label className="f">Efectivo cobrado</label>
             <input className="input num" type="number" min="0" step="0.1" value={efectivo} onChange={(e) => setEfectivo(e.target.value)} placeholder="0.00" />
           </div>
           <div className="field">
-            <label className="f">Yape</label>
+            <label className="f">Yape (va directo a la dueña)</label>
             <input className="input num" type="number" min="0" step="0.1" value={yape} onChange={(e) => setYape(e.target.value)} placeholder="0.00" />
           </div>
           <div className="field">
@@ -507,20 +539,50 @@ function Contenido() {
           </div>
         </div>
 
-        <div className="grid grid-3" style={{ marginTop: 4 }}>
+        <div className="grid grid-2">
+          <div className="field">
+            <label className="f">Descuentos y promociones (S/)</label>
+            <input className="input num" type="number" min="0" step="0.1" value={descuento} onChange={(e) => setDescuento(e.target.value)} placeholder="0.00" />
+            <p className="sub" style={{ margin: "4px 0 0", fontSize: 12 }}>
+              Ej. promoción 3 pasteles por S/ 5
+            </p>
+          </div>
+          <div className="field">
+            <label className="f">Gasto pagado con este efectivo (S/)</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gastoMonto} onChange={(e) => setGastoMonto(e.target.value)} placeholder="0.00" />
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <select className="input" value={gastoCategoria} onChange={(e) => setGastoCategoria(e.target.value)}>
+                <option value="movilidad">Pasaje / movilidad</option>
+                <option value="gasto_negocio">Bolsas / insumos</option>
+                <option value="otro_gasto">Otro gasto</option>
+              </select>
+              <input className="input" placeholder="Concepto" value={gastoConcepto} onChange={(e) => setGastoConcepto(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-4" style={{ marginTop: 4 }}>
           <div className="kpi">
-            <div className="label">Venta valorizada</div>
-            <div className="value" style={{ fontSize: 20 }}>{soles(totalVendido)}</div>
+            <div className="label">Venta neta</div>
+            <div className="value" style={{ fontSize: 18 }}>{soles(ventaNeta)}</div>
+            <div className="hint">bruta {soles(totalVendido)} − desc. {soles(montoDescuento)}</div>
           </div>
           <div className="kpi">
             <div className="label">Cobrado</div>
-            <div className="value" style={{ fontSize: 20 }}>{soles(totalCobrado)}</div>
+            <div className="value" style={{ fontSize: 18 }}>{soles(totalCobrado)}</div>
+            <div className="hint">efectivo + yape + transf.</div>
           </div>
           <div className="kpi">
             <div className="label">Diferencia</div>
-            <div className="value" style={{ fontSize: 20, color: Math.abs(diferenciaDinero) < 0.01 ? "var(--ok)" : "var(--danger)" }}>
+            <div className="value" style={{ fontSize: 18, color: Math.abs(diferenciaDinero) < 0.01 ? "var(--ok)" : "var(--danger)" }}>
               {soles(diferenciaDinero)}
             </div>
+            <div className="hint">cobrado − venta neta</div>
+          </div>
+          <div className="kpi accent">
+            <div className="label">Efectivo a entregar</div>
+            <div className="value" style={{ fontSize: 18 }}>{soles(efectivoAEntregar)}</div>
+            <div className="hint">cobrado − gastos {soles(gastoEfectivo)}</div>
           </div>
         </div>
 
