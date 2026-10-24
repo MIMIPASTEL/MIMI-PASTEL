@@ -22,6 +22,7 @@ function Contenido() {
   const [cuadre, setCuadre] = useState<Fila[]>([]);
   const [pedidos, setPedidos] = useState<Fila[]>([]);
   const [caja, setCaja] = useState<{ ing: number; sal: number }>({ ing: 0, sal: 0 });
+  const [costos, setCostos] = useState<any>(null);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
 
@@ -36,7 +37,7 @@ function Contenido() {
       (pv.data ?? []).forEach((p: any) => (map[p.id] = p.codigo));
       setNombres(map);
 
-      const [u, c, q, pe, mv] = await Promise.all([
+      const [u, c, q, pe, mv, co] = await Promise.all([
         supabase.from("v_utilidad_dia").select("*").eq("fecha", hoy).maybeSingle(),
         supabase.from("v_ventas_por_canal").select("*").eq("fecha", hoy),
         supabase.from("v_cuadre_unidades").select("*").eq("fecha", hoy).neq("diferencia", 0),
@@ -47,6 +48,7 @@ function Contenido() {
           .not("estado", "in", "(entregado,cancelado)")
           .order("fecha_entrega"),
         supabase.from("movimientos_caja").select("tipo, monto").eq("fecha", hoy),
+        supabase.from("v_costos_dia").select("*").eq("fecha", hoy).maybeSingle(),
       ]);
 
       setUtilidad(u.data ?? null);
@@ -57,6 +59,7 @@ function Contenido() {
       const ing = (mv.data ?? []).filter((m: any) => m.tipo === "ingreso").reduce((a: number, m: any) => a + Number(m.monto), 0);
       const sal = (mv.data ?? []).filter((m: any) => m.tipo === "salida").reduce((a: number, m: any) => a + Number(m.monto), 0);
       setCaja({ ing, sal });
+      setCostos(co.data ?? null);
       setCargando(false);
     })();
   }, [hoy]);
@@ -95,6 +98,38 @@ function Contenido() {
             ingresos {soles(caja.ing)} · salidas {soles(caja.sal)}
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>Costos del día</h2>
+        <div className="grid grid-4">
+          <div className="kpi">
+            <div className="label">Producido</div>
+            <div className="value" style={{ fontSize: 19 }}>{soles(costos?.costo_produccion)}</div>
+            <div className="hint">{numero(costos?.unidades_producidas)} unid.</div>
+          </div>
+          <div className="kpi">
+            <div className="label">Costo de ventas</div>
+            <div className="value" style={{ fontSize: 19 }}>{soles(costos?.costo_ventas)}</div>
+            <div className="hint">{numero(costos?.unidades_vendidas)} unid. vendidas</div>
+          </div>
+          <div className="kpi">
+            <div className="label">Sobrante a mañana</div>
+            <div className="value" style={{ fontSize: 19 }}>{soles(costos?.valor_sobrante_hoy)}</div>
+            <div className="hint">{numero(costos?.unidades_sobrante_hoy)} unid. (inventario)</div>
+          </div>
+          <div className="kpi">
+            <div className="label">Merma</div>
+            <div className="value" style={{ fontSize: 19 }}>{soles(costos?.valor_merma)}</div>
+            <div className="hint">{numero(costos?.unidades_merma)} unid.</div>
+          </div>
+        </div>
+        <p className="sub" style={{ margin: "10px 0 0" }}>
+          Producir no es gastar: lo que no se vende queda como inventario y se costea cuando sale.
+          {Number(costos?.valor_sobrante_ayer ?? 0) > 0
+            ? ` Hoy entraron ${soles(costos?.valor_sobrante_ayer)} de sobrante de ayer.`
+            : ""}
+        </p>
       </div>
 
       <div className="card">
