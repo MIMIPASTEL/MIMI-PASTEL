@@ -5,6 +5,8 @@ import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import PedidoDetalle from "@/components/PedidoDetalle";
 import Despacho from "@/components/Despacho";
+import SobrantesRevision from "@/components/SobrantesRevision";
+import InsumosProduccion from "@/components/InsumosProduccion";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string };
@@ -350,6 +352,8 @@ function Contenido() {
         </div>
       )}
 
+      <SobrantesRevision fecha={fecha} productos={productos} puntos={puntos} />
+
       <Despacho fecha={fecha} productos={productos} puntos={puntos} />
 
       <div className="card">
@@ -460,6 +464,8 @@ function Contenido() {
           <button className="btn btn-primary">Registrar merma</button>
         </form>
       </div>
+
+      <InsumosProduccion fecha={fecha} />
 
       {productos.length === 0 && (
         <div className="alert err">
