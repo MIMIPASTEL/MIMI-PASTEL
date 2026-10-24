@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
+import PedidoDetalle from "@/components/PedidoDetalle";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string };
@@ -32,6 +33,7 @@ function Contenido() {
   const [reqId, setReqId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [pedidosDia, setPedidosDia] = useState<any[]>([]);
 
   // alta de requerimiento
   const [nuevoProd, setNuevoProd] = useState("");
@@ -57,6 +59,14 @@ function Contenido() {
     ]);
     setProductos((p.data ?? []) as Prod[]);
     setPuntos((pv.data ?? []) as Punto[]);
+
+    const { data: pe } = await supabase
+      .from("pedidos")
+      .select("id, cliente, telefono, notas, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, nota, productos(nombre))")
+      .eq("fecha_entrega", fecha)
+      .neq("estado", "cancelado")
+      .order("hora_entrega");
+    setPedidosDia(pe ?? []);
 
     const { data: req } = await supabase
       .from("requerimientos")
@@ -212,6 +222,11 @@ function Contenido() {
   }
 
   const nombreProd = (id: string) => productos.find((p) => p.id === id)?.nombre ?? "—";
+
+  const nombres: Record<string, string> = {};
+  productos.forEach((p) => {
+    nombres[p.id] = p.nombre;
+  });
   const nombreDestino = (it: Item) => {
     if (it.destino_pedido_id) return "Pedido";
     return puntos.find((p) => p.id === it.destino_punto_id)?.codigo ?? "—";
@@ -321,6 +336,18 @@ function Contenido() {
           <button className="btn btn-primary">Agregar</button>
         </form>
       </div>
+
+      {pedidosDia.length > 0 && (
+        <div className="card">
+          <h2>Pedidos del día · indicaciones del cliente</h2>
+          {pedidosDia.map((p) => (
+            <PedidoDetalle key={p.id} pedido={p} nombres={nombres} />
+          ))}
+          <p className="sub" style={{ margin: "10px 0 0" }}>
+            Toca cada pedido para ver cómo debe prepararse.
+          </p>
+        </div>
+      )}
 
       <div className="card">
         <h2>Registrar producción</h2>

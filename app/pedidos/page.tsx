@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import { sincronizarPedido } from "@/lib/pedidos";
+import PedidoDetalle from "@/components/PedidoDetalle";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string };
-type Linea = { producto_id: string; cantidad: string; precio: string };
+type Linea = { producto_id: string; cantidad: string; precio: string; nota: string };
 type Pedido = {
   id: string;
   cliente: string;
@@ -45,7 +46,7 @@ function Contenido() {
   const [hora, setHora] = useState("");
   const [puntoId, setPuntoId] = useState("");
   const [adelanto, setAdelanto] = useState("");
-  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "" }]);
+  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
 
   const cargar = useCallback(async () => {
     const [p, pv, pe] = await Promise.all([
@@ -53,7 +54,7 @@ function Contenido() {
       supabase.from("puntos_venta").select("id, codigo").eq("activo", true).order("codigo"),
       supabase
         .from("pedidos")
-        .select("id, cliente, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, productos(nombre))")
+        .select("id, cliente, telefono, notas, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, nota, productos(nombre))")
         .order("fecha_entrega", { ascending: false })
         .limit(40),
     ]);
@@ -103,6 +104,7 @@ function Contenido() {
         producto_id: l.producto_id,
         cantidad: Number(l.cantidad),
         precio_unitario: Number(l.precio || 0),
+        nota: l.nota?.trim() ? l.nota.trim() : null,
       })),
     );
     if (e2) return setErr(e2.message);
@@ -114,7 +116,7 @@ function Contenido() {
     setTelefono("");
     setHora("");
     setAdelanto("");
-    setLineas([{ producto_id: "", cantidad: "", precio: "" }]);
+    setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
   }
@@ -126,6 +128,11 @@ function Contenido() {
     if (r.error) setErr(r.error);
     else setMsg("Pedido sincronizado con el requerimiento de produccion.");
   }
+
+  const nombres: Record<string, string> = {};
+  productos.forEach((p) => {
+    nombres[p.id] = p.nombre;
+  });
 
   return (
     <>
@@ -171,32 +178,44 @@ function Contenido() {
 
         <h2 style={{ marginTop: 8 }}>Productos</h2>
         {lineas.map((l, i) => (
-          <div key={i} className="grid grid-3" style={{ marginBottom: 8 }}>
-            <select className="input" value={l.producto_id} onChange={(e) => setLinea(i, "producto_id", e.target.value)}>
-              <option value="">Producto…</option>
-              {productos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
+          <div
+            key={i}
+            style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 10, marginBottom: 8 }}
+          >
+            <div className="grid grid-3">
+              <select className="input" value={l.producto_id} onChange={(e) => setLinea(i, "producto_id", e.target.value)}>
+                <option value="">Producto…</option>
+                {productos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="input num"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Cantidad"
+                value={l.cantidad}
+                onChange={(e) => setLinea(i, "cantidad", e.target.value)}
+              />
+              <input
+                className="input num"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Precio unit."
+                value={l.precio}
+                onChange={(e) => setLinea(i, "precio", e.target.value)}
+              />
+            </div>
             <input
-              className="input num"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="Cantidad"
-              value={l.cantidad}
-              onChange={(e) => setLinea(i, "cantidad", e.target.value)}
-            />
-            <input
-              className="input num"
-              type="number"
-              min="0"
-              step="0.1"
-              placeholder="Precio unit."
-              value={l.precio}
-              onChange={(e) => setLinea(i, "precio", e.target.value)}
+              className="input"
+              style={{ marginTop: 8 }}
+              placeholder="Indicaciones: bañada en chantilly, rellena de fudge, dedicatoria…"
+              value={l.nota}
+              onChange={(e) => setLinea(i, "nota", e.target.value)}
             />
           </div>
         ))}
@@ -205,7 +224,7 @@ function Contenido() {
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "" }])}
+            onClick={() => setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "", nota: "" }])}
           >
             + Agregar producto
           </button>
@@ -226,32 +245,18 @@ function Contenido() {
           <p className="empty">Todavía no hay pedidos.</p>
         ) : (
           pedidos.map((p) => (
-            <div key={p.id} style={{ padding: "10px 0", borderBottom: "1px solid #f3ebe5" }}>
-              <div className="row">
-                <div>
-                  <strong>{p.cliente}</strong>
-                  <div className="sub" style={{ margin: 0 }}>
-                    {fechaCorta(p.fecha_entrega)}
-                    {p.hora_entrega ? ` · ${p.hora_entrega.slice(0, 5)}` : ""} ·{" "}
-                    <span className="badge neutral">{p.estado}</span>
-                  </div>
-                </div>
-                <div className="num" style={{ textAlign: "right" }}>
-                  <div>{(p.pedido_items ?? []).map((it) => `${it.cantidad}× ${it.productos?.nombre ?? ""}`).join(" · ")}</div>
-                  <div className="sub" style={{ margin: 0 }}>
-                    {soles((p.pedido_items ?? []).reduce((a, it) => a + it.cantidad * it.precio_unitario, 0))}
-                    {Number(p.adelanto) > 0 ? ` · adelanto ${soles(p.adelanto)}` : ""}
-                  </div>
-                </div>
-              </div>
-              {p.estado !== "entregado" && p.estado !== "cancelado" && (
-                <div style={{ marginTop: 8 }}>
+            <PedidoDetalle
+              key={p.id}
+              pedido={p}
+              nombres={nombres}
+              accion={
+                p.estado !== "entregado" && p.estado !== "cancelado" ? (
                   <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
-                    Sincronizar con produccion
+                    Sincronizar con producción
                   </button>
-                </div>
-              )}
-            </div>
+                ) : null
+              }
+            />
           ))
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, numero, fechaCorta } from "@/lib/supabase";
+import PedidoDetalle from "@/components/PedidoDetalle";
 
 type Prod = { id: string; codigo: string | null; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string; tipo: string; es_fijo: boolean };
@@ -61,7 +62,7 @@ function Contenido() {
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
       supabase
         .from("pedidos")
-        .select("id, cliente, hora_entrega, estado, pedido_items(producto_id, cantidad)")
+        .select("id, cliente, telefono, notas, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, nota, productos(nombre))")
         .eq("fecha_entrega", fecha)
         .neq("estado", "cancelado")
         .order("hora_entrega"),
@@ -275,6 +276,11 @@ function Contenido() {
 
   const listaOmitidos = puntos.filter((p) => omitidos.has(p.id));
 
+  const nombres: Record<string, string> = {};
+  productos.forEach((p) => {
+    nombres[p.id] = p.codigo ?? p.nombre;
+  });
+
   const resumenPedidos = useMemo(() => {
     const m: Record<string, number> = {};
     pedidosDia.forEach((p) =>
@@ -447,27 +453,10 @@ function Contenido() {
             <span className="badge ok">{numero(totalPedidos)} unid. en producción</span>
           </div>
           {pedidosDia.map((p) => (
-            <div key={p.id} style={{ padding: "8px 0", borderBottom: "1px solid #f3ebe5" }}>
-              <div className="row">
-                <div>
-                  <strong>{p.cliente}</strong>
-                  <div className="sub" style={{ margin: 0 }}>
-                    {p.hora_entrega ? String(p.hora_entrega).slice(0, 5) : "sin hora"} · {p.estado}
-                  </div>
-                </div>
-                <div className="num" style={{ textAlign: "right" }}>
-                  {(p.pedido_items ?? [])
-                    .map((it: any) => {
-                      const prod = productos.find((x) => x.id === it.producto_id);
-                      return `${prod?.codigo ?? "?"}×${Number(it.cantidad)}`;
-                    })
-                    .join(" · ")}
-                </div>
-              </div>
-            </div>
+            <PedidoDetalle key={p.id} pedido={p} nombres={nombres} />
           ))}
           <p className="sub" style={{ margin: "10px 0 0" }}>
-            Se agregan solos al requerimiento. Si un pedido se cancela, deja de aparecer aquí.
+            Toca un pedido para ver las indicaciones del cliente. Se agregan solos al requerimiento.
           </p>
         </div>
       )}
