@@ -32,6 +32,7 @@ function Contenido() {
   const [abrirNuevo, setAbrirNuevo] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [pedidosDia, setPedidosDia] = useState<any[]>([]);
+  const [sobranteProd, setSobranteProd] = useState<Record<string, number>>({});
   const [draftDisponible, setDraftDisponible] = useState(false);
   const [listo, setListo] = useState(false);
   const [baseVisibles, setBaseVisibles] = useState<Set<string>>(new Set());
@@ -74,7 +75,7 @@ function Contenido() {
 
   const cargarDia = useCallback(async () => {
     setListo(false);
-    const [req, om, pe] = await Promise.all([
+    const [req, om, pe, sug] = await Promise.all([
       supabase.from("requerimientos").select("id").eq("fecha", fecha).maybeSingle(),
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
       supabase
@@ -83,10 +84,17 @@ function Contenido() {
         .eq("fecha_entrega", fecha)
         .neq("estado", "cancelado")
         .order("hora_entrega"),
+      supabase.from("v_sugerido_produccion").select("producto_id, sobrante_ayer").eq("fecha", fecha),
     ]);
 
     setOmitidos(new Set(((om.data ?? []) as any[]).map((x) => x.punto_venta_id)));
     setPedidosDia((pe.data ?? []) as any[]);
+
+    const sm: Record<string, number> = {};
+    ((sug.data ?? []) as any[]).forEach((x) => {
+      sm[x.producto_id] = (sm[x.producto_id] ?? 0) + Number(x.sobrante_ayer);
+    });
+    setSobranteProd(sm);
 
     const m: Record<string, string> = {};
     if (req.data) {
@@ -139,6 +147,8 @@ function Contenido() {
 
   const totalFila = (puntoId: string) =>
     productos.reduce((a, p) => a + Number(celdas[clave(puntoId, p.id)] || 0), 0);
+
+  const totalSobrante = Object.values(sobranteProd).reduce((a, b) => a + Number(b), 0);
 
   const totalPedido = (p: any) =>
     (p.pedido_items ?? []).reduce((a: number, it: any) => a + Number(it.cantidad), 0);
@@ -521,6 +531,42 @@ function Contenido() {
                 ))}
                 <td className="num"><strong>{numero(granTotal)}</strong></td>
               </tr>
+
+              {totalSobrante > 0 && (
+                <tr style={{ background: "#f7fbf8" }}>
+                  <td className="sticky" style={{ fontSize: 12.5 }}>− Sobrante útil</td>
+                  {productos.map((p) => (
+                    <td key={p.id} className="num" style={{ fontSize: 12.5 }}>
+                      {sobranteProd[p.id] ? numero(sobranteProd[p.id]) : ""}
+                    </td>
+                  ))}
+                  <td className="num" style={{ fontSize: 12.5 }}>{numero(totalSobrante)}</td>
+                </tr>
+              )}
+
+              {totalSobrante > 0 && (
+                <tr style={{ background: "#fdf8ec" }}>
+                  <td className="sticky"><strong>A producir</strong></td>
+                  {productos.map((p) => {
+                    const es = Math.max(0, totalCol(p.id) - (sobranteProd[p.id] ?? 0));
+                    return (
+                      <td key={p.id} className="num">
+                        <strong>{es > 0 ? numero(es) : ""}</strong>
+                      </td>
+                    );
+                  })}
+                  <td className="num">
+                    <strong>
+                      {numero(
+                        productos.reduce(
+                          (a, p) => a + Math.max(0, totalCol(p.id) - (sobranteProd[p.id] ?? 0)),
+                          0,
+                        ),
+                      )}
+                    </strong>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
