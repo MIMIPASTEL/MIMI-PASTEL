@@ -51,6 +51,7 @@ function Contenido() {
         .from("puntos_venta")
         .select("id, codigo, nombre, turno")
         .eq("activo", true)
+        .order("orden", { ascending: true })
         .order("codigo");
       setPuntos((data ?? []) as Punto[]);
       if (data && data.length > 0) setPuntoId(data[0].id);

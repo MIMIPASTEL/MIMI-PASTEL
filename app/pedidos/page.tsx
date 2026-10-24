@@ -55,7 +55,7 @@ function Contenido() {
   const cargar = useCallback(async () => {
     const [p, pv, pe] = await Promise.all([
       supabase.from("productos").select("id, nombre").eq("activo", true).order("orden", { ascending: true }),
-      supabase.from("puntos_venta").select("id, codigo").eq("activo", true).order("codigo"),
+      supabase.from("puntos_venta").select("id, codigo").eq("activo", true).order("orden", { ascending: true }).order("codigo"),
       supabase
         .from("pedidos")
         .select("id, cliente, telefono, notas, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, tamano, nota, productos(nombre))")

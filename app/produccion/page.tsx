@@ -55,7 +55,7 @@ function Contenido() {
   const cargar = useCallback(async () => {
     const [p, pv] = await Promise.all([
       supabase.from("productos").select("id, nombre").eq("activo", true).order("orden", { ascending: true }),
-      supabase.from("puntos_venta").select("id, codigo, nombre").eq("activo", true).order("codigo"),
+      supabase.from("puntos_venta").select("id, codigo, nombre").eq("activo", true).order("orden", { ascending: true }).order("codigo"),
     ]);
     setProductos((p.data ?? []) as Prod[]);
     setPuntos((pv.data ?? []) as Punto[]);

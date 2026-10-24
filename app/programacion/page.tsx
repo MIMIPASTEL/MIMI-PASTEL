@@ -54,6 +54,7 @@ function Contenido() {
         .select("id, codigo, nombre, tipo, es_fijo")
         .eq("activo", true)
         .in("tipo", ["maxiahorro", "repartos"])
+        .order("orden", { ascending: true })
         .order("codigo"),
     ]);
     setProductos((p.data ?? []) as Prod[]);
