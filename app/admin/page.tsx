@@ -37,20 +37,25 @@ function Contenido() {
   const [promoCant, setPromoCant] = useState("3");
   const [promoPrecio, setPromoPrecio] = useState("");
   const [promoProds, setPromoProds] = useState<string[]>([]);
+  const [insumos, setInsumos] = useState<any[]>([]);
+  const [insumoNombre, setInsumoNombre] = useState("");
+  const [insumoUnidad, setInsumoUnidad] = useState("kg");
 
   const cargar = useCallback(async () => {
-    const [p, pv, pr, pf, pm] = await Promise.all([
+    const [p, pv, pr, pf, pm, ins] = await Promise.all([
       supabase.from("productos").select("id, nombre, codigo, unidad, activo, orden").order("orden", { ascending: true }),
       supabase.from("puntos_venta").select("id, codigo, nombre, tipo, es_fijo, orden").order("orden", { ascending: true }).order("codigo"),
       supabase.from("precios").select("id, producto_id, punto_venta_id, precio"),
       supabase.from("perfiles").select("id, nombre, rol").order("nombre"),
       supabase.from("promociones").select("id, nombre, cantidad, precio, activo, promocion_productos(producto_id)").order("creado_en"),
+      supabase.from("insumos").select("id, nombre, unidad_base, precio_unitario, activo").order("nombre"),
     ]);
     setProductos((p.data ?? []) as Prod[]);
     setPuntos((pv.data ?? []) as Punto[]);
     setPrecios((pr.data ?? []) as Precio[]);
     setPerfiles((pf.data ?? []) as Perfil[]);
     setPromos((pm.data ?? []) as any[]);
+    setInsumos((ins.data ?? []) as any[]);
   }, []);
 
   useEffect(() => {
@@ -97,6 +102,26 @@ function Contenido() {
     if (error) return setErr(error.message);
     setPrecioValor("");
     setMsg("Precio registrado.");
+    cargar();
+  }
+
+  async function crearInsumo(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+    if (!insumoNombre.trim()) return setErr("Falta el nombre del insumo.");
+    const { error } = await supabase
+      .from("insumos")
+      .insert({ nombre: insumoNombre.trim(), unidad_base: insumoUnidad });
+    if (error) return setErr(error.message);
+    setInsumoNombre("");
+    setMsg("Insumo creado.");
+    cargar();
+  }
+
+  async function guardarPrecioInsumo(id: string, valor: string) {
+    const precio = Number(valor || 0);
+    await supabase.from("insumos").update({ precio_unitario: precio }).eq("id", id);
     cargar();
   }
 
@@ -306,6 +331,63 @@ function Contenido() {
                     <button className="btn btn-sm" onClick={() => alternarFijo(pv)}>
                       {pv.es_fijo ? "Marcar eventual" : "Marcar fijo"}
                     </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Insumos y precios</h2>
+        <p className="sub" style={{ marginTop: -6 }}>
+          El precio por unidad base (kg, litro, unidad) sirve para valorizar el consumo diario.
+        </p>
+
+        <form onSubmit={crearInsumo}>
+          <div className="grid grid-3">
+            <div className="field">
+              <label className="f">Nombre</label>
+              <input className="input" value={insumoNombre} onChange={(e) => setInsumoNombre(e.target.value)} placeholder="Masa, fruta, manjar…" />
+            </div>
+            <div className="field">
+              <label className="f">Unidad</label>
+              <select className="input" value={insumoUnidad} onChange={(e) => setInsumoUnidad(e.target.value)}>
+                <option value="kg">Kilo</option>
+                <option value="l">Litro</option>
+                <option value="unidad">Unidad</option>
+                <option value="balon">Balón</option>
+              </select>
+            </div>
+          </div>
+          <button className="btn btn-sm">Agregar insumo</button>
+        </form>
+
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Insumo</th>
+                <th>Unidad</th>
+                <th className="num">Precio por unidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {insumos.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.nombre}</td>
+                  <td>{i.unidad_base}</td>
+                  <td className="num">
+                    <input
+                      className="input num"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      defaultValue={Number(i.precio_unitario ?? 0)}
+                      onBlur={(e) => guardarPrecioInsumo(i.id, e.target.value)}
+                      style={{ width: 100, padding: "6px 8px" }}
+                    />
                   </td>
                 </tr>
               ))}
