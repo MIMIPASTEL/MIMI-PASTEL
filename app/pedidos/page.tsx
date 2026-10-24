@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
+import { sincronizarPedido } from "@/lib/pedidos";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string };
@@ -106,52 +107,24 @@ function Contenido() {
     );
     if (e2) return setErr(e2.message);
 
+    const sync = await sincronizarPedido(ped.id, perfil?.id);
+    if (sync.error) setErr("Pedido guardado, pero no se pudo programar: " + sync.error);
+
     setCliente("");
     setTelefono("");
     setHora("");
     setAdelanto("");
     setLineas([{ producto_id: "", cantidad: "", precio: "" }]);
-    setMsg("Pedido registrado.");
+    if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
   }
 
   async function pasarAProduccion(p: Pedido) {
     setErr(null);
     setMsg(null);
-    const fechaEntrega = p.fecha_entrega;
-
-    const { data: req } = await supabase
-      .from("requerimientos")
-      .select("id")
-      .eq("fecha", fechaEntrega)
-      .maybeSingle();
-
-    let reqId = req?.id;
-    if (!reqId) {
-      const { data: nuevo, error } = await supabase
-        .from("requerimientos")
-        .insert({ fecha: fechaEntrega, notas: "Generado desde pedidos", creado_por: perfil?.id })
-        .select("id")
-        .single();
-      if (error) return setErr(error.message);
-      reqId = nuevo.id;
-    }
-
-    const { error } = await supabase.from("requerimiento_items").insert(
-      (p.pedido_items ?? []).map((it) => ({
-        requerimiento_id: reqId,
-        producto_id: it.producto_id,
-        cantidad: it.cantidad,
-        destino_pedido_id: p.id,
-        origen: "pedido",
-      })),
-    );
-
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-    setMsg("Pedido enviado al requerimiento de producción.");
+    const r = await sincronizarPedido(p.id, perfil?.id);
+    if (r.error) setErr(r.error);
+    else setMsg("Pedido sincronizado con el requerimiento de produccion.");
   }
 
   return (
@@ -274,7 +247,7 @@ function Contenido() {
               {p.estado !== "entregado" && p.estado !== "cancelado" && (
                 <div style={{ marginTop: 8 }}>
                   <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
-                    Pasar al requerimiento
+                    Sincronizar con produccion
                   </button>
                 </div>
               )}

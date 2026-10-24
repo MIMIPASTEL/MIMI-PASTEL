@@ -29,6 +29,7 @@ function Contenido() {
   const [verEventuales, setVerEventuales] = useState(false);
   const [abrirNuevo, setAbrirNuevo] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
+  const [pedidosDia, setPedidosDia] = useState<any[]>([]);
 
   const clave = (puntoId: string, prodId: string) => `${puntoId}|${prodId}`;
 
@@ -55,11 +56,19 @@ function Contenido() {
   }, []);
 
   const cargarDia = useCallback(async () => {
-    const [req, om] = await Promise.all([
+    const [req, om, pe] = await Promise.all([
       supabase.from("requerimientos").select("id").eq("fecha", fecha).maybeSingle(),
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
+      supabase
+        .from("pedidos")
+        .select("id, cliente, hora_entrega, estado, pedido_items(producto_id, cantidad)")
+        .eq("fecha_entrega", fecha)
+        .neq("estado", "cancelado")
+        .order("hora_entrega"),
     ]);
+
     setOmitidos(new Set(((om.data ?? []) as any[]).map((x) => x.punto_venta_id)));
+    setPedidosDia((pe.data ?? []) as any[]);
 
     if (!req.data) {
       setCeldas({});
@@ -266,6 +275,18 @@ function Contenido() {
 
   const listaOmitidos = puntos.filter((p) => omitidos.has(p.id));
 
+  const resumenPedidos = useMemo(() => {
+    const m: Record<string, number> = {};
+    pedidosDia.forEach((p) =>
+      (p.pedido_items ?? []).forEach((it: any) => {
+        m[it.producto_id] = (m[it.producto_id] ?? 0) + Number(it.cantidad);
+      }),
+    );
+    return m;
+  }, [pedidosDia]);
+
+  const totalPedidos = Object.values(resumenPedidos).reduce((a, b) => a + b, 0);
+
   return (
     <>
       <h1>Programación</h1>
@@ -418,6 +439,38 @@ function Contenido() {
           Toca la <strong>×</strong> de un cliente cuando hoy no pidió: se quita de la parrilla sin borrar nada.
         </p>
       </div>
+
+      {pedidosDia.length > 0 && (
+        <div className="card">
+          <div className="row" style={{ marginBottom: 10 }}>
+            <h2 style={{ margin: 0 }}>Pedidos de este día</h2>
+            <span className="badge ok">{numero(totalPedidos)} unid. en producción</span>
+          </div>
+          {pedidosDia.map((p) => (
+            <div key={p.id} style={{ padding: "8px 0", borderBottom: "1px solid #f3ebe5" }}>
+              <div className="row">
+                <div>
+                  <strong>{p.cliente}</strong>
+                  <div className="sub" style={{ margin: 0 }}>
+                    {p.hora_entrega ? String(p.hora_entrega).slice(0, 5) : "sin hora"} · {p.estado}
+                  </div>
+                </div>
+                <div className="num" style={{ textAlign: "right" }}>
+                  {(p.pedido_items ?? [])
+                    .map((it: any) => {
+                      const prod = productos.find((x) => x.id === it.producto_id);
+                      return `${prod?.codigo ?? "?"}×${Number(it.cantidad)}`;
+                    })
+                    .join(" · ")}
+                </div>
+              </div>
+            </div>
+          ))}
+          <p className="sub" style={{ margin: "10px 0 0" }}>
+            Se agregan solos al requerimiento. Si un pedido se cancela, deja de aparecer aquí.
+          </p>
+        </div>
+      )}
 
       {listaOmitidos.length > 0 && (
         <div className="card">
