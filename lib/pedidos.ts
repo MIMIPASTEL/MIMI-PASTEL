@@ -61,7 +61,6 @@ export async function sincronizarPedido(
   await supabase
     .from("requerimiento_items")
     .delete()
-    .eq("requerimiento_id", reqId)
     .eq("destino_pedido_id", pedidoId);
 
   const { error: e2 } = await supabase.from("requerimiento_items").insert(
