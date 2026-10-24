@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
+import RecetasAdmin from "@/components/RecetasAdmin";
 import { supabase, soles } from "@/lib/supabase";
 
 type Prod = { id: string; nombre: string; codigo: string | null; unidad: string; activo: boolean };
@@ -395,6 +396,8 @@ function Contenido() {
           </table>
         </div>
       </div>
+
+      <RecetasAdmin productos={productos} />
 
       <div className="card">
         <h2>Promociones</h2>

@@ -18,6 +18,7 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [cant, setCant] = useState<Record<string, string>>({});
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [sugerido, setSugerido] = useState<Record<string, number>>({});
   const [pedidoInsumo, setPedidoInsumo] = useState("");
   const [pedidoCant, setPedidoCant] = useState("");
   const [pedidoNota, setPedidoNota] = useState("");
@@ -26,7 +27,7 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
   const [guardando, setGuardando] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [ins, con, sol] = await Promise.all([
+    const [ins, con, sol, lot, rec] = await Promise.all([
       supabase.from("insumos").select("id, nombre, unidad_base, precio_unitario").eq("activo", true).order("nombre"),
       supabase.from("consumos_dia").select("insumo_id, cantidad").eq("fecha", fecha),
       supabase
@@ -34,7 +35,27 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
         .select("id, cantidad, nota, estado, fecha, nombre_libre, insumos(nombre)")
         .eq("estado", "pendiente")
         .order("creado_en"),
+      supabase.from("lotes_produccion").select("producto_id, cantidad_producida").eq("fecha", fecha),
+      supabase.from("recetas").select("id, producto_id, version, rendimiento, receta_items(insumo_id, cantidad)"),
     ]);
+
+    // Sugerido por receta: lotes producidos hoy x receta del producto
+    const mejores: Record<string, any> = {};
+    ((rec.data ?? []) as any[]).forEach((r) => {
+      if (!mejores[r.producto_id] || Number(r.version) > Number(mejores[r.producto_id].version)) {
+        mejores[r.producto_id] = r;
+      }
+    });
+    const sug: Record<string, number> = {};
+    ((lot.data ?? []) as any[]).forEach((l) => {
+      const r = mejores[l.producto_id];
+      if (!r) return;
+      const factor = Number(l.cantidad_producida) / Number(r.rendimiento || 1);
+      (r.receta_items ?? []).forEach((it: any) => {
+        sug[it.insumo_id] = (sug[it.insumo_id] ?? 0) + factor * Number(it.cantidad);
+      });
+    });
+    setSugerido(sug);
     setInsumos((ins.data ?? []) as Insumo[]);
     const m: Record<string, string> = {};
     (con.data ?? []).forEach((c: any) => {
@@ -117,6 +138,7 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
             <thead>
               <tr>
                 <th>Insumo</th>
+                <th className="num">Sugerido</th>
                 <th className="num">Cantidad</th>
                 <th className="num">Costo</th>
               </tr>
@@ -125,6 +147,9 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
               {insumos.map((i) => (
                 <tr key={i.id}>
                   <td>{i.nombre} <span style={{ color: "var(--muted)", fontSize: 12 }}>({i.unidad_base})</span></td>
+                  <td className="num" style={{ color: "var(--muted)" }}>
+                    {sugerido[i.id] ? numero(sugerido[i.id], 2) : ""}
+                  </td>
                   <td className="num">
                     <input
                       className="input num"
@@ -140,16 +165,34 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
                 </tr>
               ))}
               <tr>
-                <td colSpan={2}><strong>Total del día</strong></td>
+                <td colSpan={3}><strong>Total del día</strong></td>
                 <td className="num"><strong>{soles(totalDia)}</strong></td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={guardarConsumo} disabled={guardando}>
-          {guardando ? "Guardando…" : "Guardar consumo"}
-        </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <button className="btn btn-primary" onClick={guardarConsumo} disabled={guardando}>
+            {guardando ? "Guardando…" : "Guardar consumo"}
+          </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              const nuevo: Record<string, string> = { ...cant };
+              Object.entries(sugerido).forEach(([id, v]) => {
+                if (Number(v) > 0) nuevo[id] = String(Math.round(Number(v) * 100) / 100);
+              });
+              setCant(nuevo);
+            }}
+          >
+            Usar cantidades sugeridas
+          </button>
+        </div>
+        <p className="sub" style={{ margin: "8px 0 0", fontSize: 12 }}>
+          El sugerido sale de las recetas por lo que se produjo hoy. Ajústalo si se usó de más o de menos.
+        </p>
       </div>
 
       <div className="card">
