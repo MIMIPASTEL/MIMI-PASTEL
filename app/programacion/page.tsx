@@ -38,13 +38,21 @@ function Contenido() {
 
   const clave = (puntoId: string, prodId: string) => `${puntoId}|${prodId}`;
 
-  const visibles = useMemo(
-    () =>
-      puntos.filter(
-        (p) => (verEventuales || p.es_fijo) && !omitidos.has(p.id),
-      ),
-    [puntos, verEventuales, omitidos],
-  );
+  // Fijos: siempre. Eventuales: solo si tienen requerimiento en esta fecha
+  // (o si se activa el interruptor para ver el catalogo completo).
+  const visibles = useMemo(() => {
+    const conRequerimiento = new Set(
+      Object.keys(celdas)
+        .map((k) => k.split("|")[0])
+        .filter(Boolean),
+    );
+    return puntos.filter((p) => {
+      if (omitidos.has(p.id)) return false;
+      if (p.es_fijo) return true;
+      if (verEventuales) return true;
+      return conRequerimiento.has(p.id);
+    });
+  }, [puntos, verEventuales, omitidos, celdas]);
 
   const cargarBase = useCallback(async () => {
     const [p, pv] = await Promise.all([
@@ -390,7 +398,7 @@ function Contenido() {
               onChange={(e) => setVerEventuales(e.target.checked)}
               style={{ width: 16, height: 16 }}
             />
-            Mostrar eventuales ({puntos.filter((p) => !p.es_fijo).length})
+            Ver todos los eventuales ({puntos.filter((p) => !p.es_fijo).length})
           </label>
 
           <button className="btn btn-sm" type="button" onClick={() => setAbrirNuevo((v) => !v)}>
@@ -520,7 +528,7 @@ function Contenido() {
         )}
 
         <p className="sub" style={{ margin: "10px 4px 0" }}>
-          Toca la <strong>×</strong> de un cliente cuando hoy no pidió. Las filas con 🎂 son pedidos: se editan en la pestaña Pedidos.
+          Los clientes fijos aparecen siempre. Los eventuales aparecen cuando tienen requerimiento en la fecha. Toca la <strong>×</strong> si un cliente hoy no pidió. Las filas con 🎂 son pedidos.
         </p>
       </div>
 
