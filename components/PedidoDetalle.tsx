@@ -84,6 +84,9 @@ export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoIni
                   S/ {Number(it.precio_unitario ?? 0).toFixed(2)} c/u
                 </span>
               </div>
+              {it.empaque && (
+                <p style={{ margin: "4px 0 0", fontSize: 13 }}>📦 Empaque: {it.empaque}</p>
+              )}
               {it.tamano && (
                 <p style={{ margin: "4px 0 0", fontSize: 13 }}>📏 Tamaño: {it.tamano}</p>
               )}
@@ -99,6 +102,9 @@ export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoIni
             <p style={{ margin: "4px 0 0", fontSize: 13 }}>
               <strong>Nota general:</strong> {pedido.notas}
             </p>
+          )}
+          {pedido.lugar && (
+            <p style={{ margin: "4px 0 0", fontSize: 13 }}>📍 {pedido.lugar}</p>
           )}
           {pedido.telefono && (
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>📞 {pedido.telefono}</p>

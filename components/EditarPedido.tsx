@@ -5,7 +5,7 @@ import { supabase, soles } from "@/lib/supabase";
 import { quitarPedidoDeProduccion, sincronizarPedido } from "@/lib/pedidos";
 
 type Prod = { id: string; nombre: string };
-type Linea = { producto_id: string; cantidad: string; precio: string; tamano: string; nota: string };
+type Linea = { producto_id: string; cantidad: string; precio: string; tamano: string; nota: string; empaque: string };
 
 export default function EditarPedido({
   pedido,
@@ -22,6 +22,7 @@ export default function EditarPedido({
 }) {
   const [cliente, setCliente] = useState(pedido.cliente ?? "");
   const [telefono, setTelefono] = useState(pedido.telefono ?? "");
+  const [lugar, setLugar] = useState(pedido.lugar ?? "");
   const [fecha, setFecha] = useState(pedido.fecha_entrega ?? "");
   const [hora, setHora] = useState(pedido.hora_entrega ? String(pedido.hora_entrega).slice(0, 5) : "");
   const [adelanto, setAdelanto] = useState(String(Number(pedido.adelanto ?? 0)));
@@ -34,6 +35,7 @@ export default function EditarPedido({
       precio: String(Number(it.precio_unitario ?? 0)),
       tamano: it.tamano ?? "",
       nota: it.nota ?? "",
+      empaque: it.empaque ?? "",
     })),
   );
   const [err, setErr] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export default function EditarPedido({
       .update({
         cliente: cliente.trim(),
         telefono: telefono || null,
+        lugar: lugar || null,
         fecha_entrega: fecha,
         hora_entrega: hora || null,
         adelanto: Number(adelanto || 0),
@@ -88,6 +91,7 @@ export default function EditarPedido({
         precio_unitario: Number(l.precio || 0),
         tamano: l.tamano.trim() || null,
         nota: l.nota.trim() || null,
+        empaque: l.empaque || null,
       })),
     );
 
@@ -137,6 +141,11 @@ export default function EditarPedido({
             <label className="f">Teléfono</label>
             <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </div>
+        </div>
+
+        <div className="field">
+          <label className="f">Lugar de entrega</label>
+          <input className="input" value={lugar} onChange={(e) => setLugar(e.target.value)} />
         </div>
 
         <div className="grid grid-3">
@@ -206,6 +215,18 @@ export default function EditarPedido({
                 onChange={(e) => setLinea(i, "nota", e.target.value)}
               />
             </div>
+            <select
+              className="input"
+              style={{ marginTop: 8 }}
+              value={l.empaque}
+              onChange={(e) => setLinea(i, "empaque", e.target.value)}
+            >
+              <option value="">Empaque…</option>
+              <option value="caja">Caja</option>
+              <option value="bolsa">Bolsa</option>
+              <option value="bandeja">Bandeja</option>
+              <option value="otro">Otro</option>
+            </select>
             <div style={{ textAlign: "right", marginTop: 6 }}>
               <button
                 className="btn btn-sm btn-danger"
@@ -222,7 +243,7 @@ export default function EditarPedido({
           className="btn btn-sm"
           type="button"
           onClick={() =>
-            setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "", tamano: "", nota: "" }])
+            setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "", tamano: "", nota: "", empaque: "" }])
           }
         >
           + Agregar producto

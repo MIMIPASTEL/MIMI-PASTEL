@@ -68,7 +68,7 @@ function Contenido() {
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
       supabase
         .from("pedidos")
-        .select("id, cliente, telefono, notas, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, nota, productos(nombre))")
+        .select("id, cliente, telefono, lugar, notas, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, nota, empaque, productos(nombre))")
         .eq("fecha_entrega", fecha)
         .neq("estado", "cancelado")
         .order("hora_entrega"),

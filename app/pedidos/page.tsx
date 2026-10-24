@@ -10,7 +10,7 @@ import EditarPedido from "@/components/EditarPedido";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string };
-type Linea = { producto_id: string; cantidad: string; precio: string; nota: string };
+type Linea = { producto_id: string; cantidad: string; precio: string; nota: string; empaque: string };
 type Pedido = {
   id: string;
   cliente: string;
@@ -44,11 +44,14 @@ function Contenido() {
 
   const [cliente, setCliente] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [lugar, setLugar] = useState("");
+  const [nuevoProducto, setNuevoProducto] = useState("");
+  const [creandoProd, setCreandoProd] = useState(false);
   const [fecha, setFecha] = useState(hoyISO());
   const [hora, setHora] = useState("");
   const [puntoId, setPuntoId] = useState("");
   const [adelanto, setAdelanto] = useState("");
-  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
+  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
   const [draftListo, setDraftListo] = useState(false);
   const [editando, setEditando] = useState<any>(null);
 
@@ -58,7 +61,7 @@ function Contenido() {
       supabase.from("puntos_venta").select("id, codigo").eq("activo", true).order("orden", { ascending: true }).order("codigo"),
       supabase
         .from("pedidos")
-        .select("id, cliente, telefono, notas, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, tamano, nota, productos(nombre))")
+        .select("id, cliente, telefono, lugar, notas, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, tamano, nota, empaque, productos(nombre))")
         .order("fecha_entrega", { ascending: false })
         .limit(40),
     ]);
@@ -77,6 +80,7 @@ function Contenido() {
     if (d) {
       if (typeof d.cliente === "string") setCliente(d.cliente);
       if (typeof d.telefono === "string") setTelefono(d.telefono);
+      if (typeof d.lugar === "string") setLugar(d.lugar);
       if (typeof d.fecha === "string") setFecha(d.fecha);
       if (typeof d.hora === "string") setHora(d.hora);
       if (typeof d.puntoId === "string") setPuntoId(d.puntoId);
@@ -90,17 +94,31 @@ function Contenido() {
   useEffect(() => {
     if (!draftListo) return;
     const t = setTimeout(
-      () => guardarBorrador("mip:pedido:nuevo", { cliente, telefono, fecha, hora, puntoId, adelanto, lineas }),
+      () => guardarBorrador("mip:pedido:nuevo", { cliente, telefono, lugar, fecha, hora, puntoId, adelanto, lineas }),
       600,
     );
     return () => clearTimeout(t);
-  }, [draftListo, cliente, telefono, fecha, hora, puntoId, adelanto, lineas]);
+  }, [draftListo, cliente, telefono, lugar, fecha, hora, puntoId, adelanto, lineas]);
 
   function setLinea(i: number, campo: keyof Linea, v: string) {
     setLineas((l) => l.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
   }
 
   const total = lineas.reduce((a, l) => a + Number(l.cantidad || 0) * Number(l.precio || 0), 0);
+
+  async function crearProductoRapido() {
+    setErr(null);
+    setMsg(null);
+    const nombre = nuevoProducto.trim();
+    if (!nombre) return;
+    setCreandoProd(true);
+    const { error } = await supabase.from("productos").insert({ nombre, unidad: "unidad" });
+    setCreandoProd(false);
+    if (error) return setErr(error.message);
+    setNuevoProducto("");
+    setMsg(`Producto "${nombre}" creado. Ya puedes elegirlo en la lista.`);
+    cargar();
+  }
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -115,6 +133,7 @@ function Contenido() {
       .insert({
         cliente: cliente.trim(),
         telefono: telefono || null,
+        lugar: lugar || null,
         fecha_entrega: fecha,
         hora_entrega: hora || null,
         punto_venta_id: puntoId || null,
@@ -134,6 +153,7 @@ function Contenido() {
         cantidad: Number(l.cantidad),
         precio_unitario: Number(l.precio || 0),
         nota: l.nota?.trim() ? l.nota.trim() : null,
+        empaque: l.empaque || null,
       })),
     );
     if (e2) return setErr(e2.message);
@@ -143,9 +163,10 @@ function Contenido() {
 
     setCliente("");
     setTelefono("");
+    setLugar("");
     setHora("");
     setAdelanto("");
-    setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
+    setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
     borrarBorrador("mip:pedido:nuevo");
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
@@ -183,6 +204,16 @@ function Contenido() {
             <label className="f">Teléfono</label>
             <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Opcional" />
           </div>
+        </div>
+
+        <div className="field">
+          <label className="f">Lugar de entrega</label>
+          <input
+            className="input"
+            value={lugar}
+            onChange={(e) => setLugar(e.target.value)}
+            placeholder="Dirección o referencia (ej. Av. Lima 245, frente al mercado)"
+          />
         </div>
         <div className="grid grid-3">
           <div className="field">
@@ -247,6 +278,18 @@ function Contenido() {
               value={l.nota}
               onChange={(e) => setLinea(i, "nota", e.target.value)}
             />
+            <select
+              className="input"
+              style={{ marginTop: 8 }}
+              value={l.empaque}
+              onChange={(e) => setLinea(i, "empaque", e.target.value)}
+            >
+              <option value="">Empaque…</option>
+              <option value="caja">Caja</option>
+              <option value="bolsa">Bolsa</option>
+              <option value="bandeja">Bandeja</option>
+              <option value="otro">Otro</option>
+            </select>
           </div>
         ))}
 
@@ -254,11 +297,38 @@ function Contenido() {
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "", nota: "" }])}
+            onClick={() => setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }])}
           >
             + Agregar producto
           </button>
           <strong>{soles(total)}</strong>
+        </div>
+
+        <div
+          style={{
+            border: "1px dashed var(--line)",
+            borderRadius: 10,
+            padding: 10,
+            marginTop: 8,
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+            ¿Producto que no está en la lista? (bocaditos, tortas especiales…)
+          </span>
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 160 }}
+            placeholder="Nombre del producto"
+            value={nuevoProducto}
+            onChange={(e) => setNuevoProducto(e.target.value)}
+          />
+          <button className="btn btn-sm" type="button" onClick={crearProductoRapido} disabled={creandoProd}>
+            {creandoProd ? "Creando…" : "Crear producto"}
+          </button>
         </div>
 
         <div className="field" style={{ marginTop: 12 }}>
