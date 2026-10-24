@@ -5,7 +5,7 @@ import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, numero, fechaCorta } from "@/lib/supabase";
 
 type Prod = { id: string; codigo: string | null; nombre: string };
-type Punto = { id: string; codigo: string; tipo: string };
+type Punto = { id: string; codigo: string; tipo: string; es_fijo: boolean };
 
 export default function ProgramacionPage() {
   return (
@@ -24,15 +24,21 @@ function Contenido() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [verEventuales, setVerEventuales] = useState(false);
 
   const clave = (puntoId: string, prodId: string) => `${puntoId}|${prodId}`;
+
+  const visibles = useMemo(
+    () => (verEventuales ? puntos : puntos.filter((p) => p.es_fijo)),
+    [puntos, verEventuales],
+  );
 
   const cargarBase = useCallback(async () => {
     const [p, pv] = await Promise.all([
       supabase.from("productos").select("id, codigo, nombre").eq("activo", true).order("codigo"),
       supabase
         .from("puntos_venta")
-        .select("id, codigo, tipo")
+        .select("id, codigo, tipo, es_fijo")
         .eq("activo", true)
         .in("tipo", ["maxiahorro", "repartos"])
         .order("codigo"),
@@ -79,10 +85,10 @@ function Contenido() {
     productos.reduce((a, p) => a + Number(celdas[clave(puntoId, p.id)] || 0), 0);
 
   const totalCol = (prodId: string) =>
-    puntos.reduce((a, pv) => a + Number(celdas[clave(pv.id, prodId)] || 0), 0);
+    visibles.reduce((a, pv) => a + Number(celdas[clave(pv.id, prodId)] || 0), 0);
 
   const granTotal = useMemo(
-    () => puntos.reduce((a, pv) => a + totalFila(pv.id), 0),
+    () => visibles.reduce((a, pv) => a + totalFila(pv.id), 0),
     [puntos, productos, celdas],
   );
 
@@ -201,6 +207,18 @@ function Contenido() {
         </div>
       </div>
 
+      <div className="card" style={{ padding: "10px 14px" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600 }}>
+          <input
+            type="checkbox"
+            checked={verEventuales}
+            onChange={(e) => setVerEventuales(e.target.checked)}
+            style={{ width: 16, height: 16 }}
+          />
+          Mostrar clientes eventuales ({puntos.filter((p) => !p.es_fijo).length})
+        </label>
+      </div>
+
       <div className="card" style={{ padding: 10 }}>
         <div className="table-wrap">
           <table className="grid-prog">
@@ -216,7 +234,7 @@ function Contenido() {
               </tr>
             </thead>
             <tbody>
-              {puntos.map((pv) => (
+              {visibles.map((pv) => (
                 <tr key={pv.id}>
                   <td className="sticky">{pv.codigo}</td>
                   {productos.map((p) => (

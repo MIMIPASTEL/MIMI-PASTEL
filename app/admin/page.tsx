@@ -5,7 +5,7 @@ import Shell from "@/components/Shell";
 import { supabase, soles } from "@/lib/supabase";
 
 type Prod = { id: string; nombre: string; codigo: string | null; unidad: string; activo: boolean };
-type Punto = { id: string; codigo: string };
+type Punto = { id: string; codigo: string; nombre: string; tipo: string; es_fijo: boolean };
 type Precio = { id: string; producto_id: string; punto_venta_id: string | null; precio: number };
 type Perfil = { id: string; nombre: string; rol: string };
 
@@ -36,7 +36,7 @@ function Contenido() {
   const cargar = useCallback(async () => {
     const [p, pv, pr, pf] = await Promise.all([
       supabase.from("productos").select("id, nombre, codigo, unidad, activo").order("nombre"),
-      supabase.from("puntos_venta").select("id, codigo").order("codigo"),
+      supabase.from("puntos_venta").select("id, codigo, nombre, tipo, es_fijo").order("codigo"),
       supabase.from("precios").select("id, producto_id, punto_venta_id, precio"),
       supabase.from("perfiles").select("id, nombre, rol").order("nombre"),
     ]);
@@ -64,6 +64,11 @@ function Contenido() {
     setNombre("");
     setCodigo("");
     setMsg("Producto creado.");
+    cargar();
+  }
+
+  async function alternarFijo(p: Punto) {
+    await supabase.from("puntos_venta").update({ es_fijo: !p.es_fijo }).eq("id", p.id);
     cargar();
   }
 
@@ -219,6 +224,46 @@ function Contenido() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <h2>Puntos de venta y clientes</h2>
+        <p className="sub" style={{ marginTop: -6 }}>
+          Los fijos aparecen siempre en la parrilla de programación (lunes a viernes).
+          Los eventuales solo cuando activas «mostrar eventuales».
+        </p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Programación</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {puntos.map((pv) => (
+                <tr key={pv.id}>
+                  <td><strong>{pv.codigo}</strong></td>
+                  <td>{pv.nombre}</td>
+                  <td>{pv.tipo}</td>
+                  <td>
+                    <span className={`badge ${pv.es_fijo ? "ok" : "neutral"}`}>
+                      {pv.es_fijo ? "fijo" : "eventual"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="btn btn-sm" onClick={() => alternarFijo(pv)}>
+                      {pv.es_fijo ? "Marcar eventual" : "Marcar fijo"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="card">
