@@ -7,6 +7,7 @@ type Props = {
   /** id de producto -> nombre corto (código) para mostrar */
   nombres?: Record<string, string>;
   accion?: React.ReactNode;
+  onEliminar?: () => void;
   abiertoInicial?: boolean;
 };
 
@@ -14,8 +15,9 @@ type Props = {
  * Tarjeta de pedido que se despliega al tocarla.
  * Muestra las especificaciones de cada línea (relleno, cobertura, dedicatoria…).
  */
-export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoInicial = false }: Props) {
+export default function PedidoDetalle({ pedido, nombres = {}, accion, onEliminar, abiertoInicial = false }: Props) {
   const [abierto, setAbierto] = useState(abiertoInicial);
+  const [confirmar, setConfirmar] = useState(false);
   const items = pedido?.pedido_items ?? [];
   const total = items.reduce(
     (a: number, it: any) => a + Number(it.cantidad) * Number(it.precio_unitario ?? 0),
@@ -25,16 +27,18 @@ export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoIni
 
   return (
     <div style={{ borderBottom: "1px solid #f3ebe5" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 0" }}>
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
         aria-expanded={abierto}
         style={{
-          width: "100%",
+          flex: 1,
+          minWidth: 0,
           textAlign: "left",
           background: "transparent",
           border: "none",
-          padding: "10px 0",
+          padding: 0,
           cursor: "pointer",
           fontFamily: "inherit",
           color: "inherit",
@@ -62,6 +66,27 @@ export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoIni
           <div style={{ fontSize: 12, color: "var(--muted)" }}>{abierto ? "▲ ocultar" : "▼ ver detalle"}</div>
         </div>
       </button>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+        {accion}
+        {onEliminar && (
+          confirmar ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn btn-sm btn-danger" type="button" onClick={onEliminar}>
+                Sí
+              </button>
+              <button className="btn btn-sm" type="button" onClick={() => setConfirmar(false)}>
+                No
+              </button>
+            </div>
+          ) : (
+            <button className="btn btn-sm btn-danger" type="button" onClick={() => setConfirmar(true)}>
+              Eliminar
+            </button>
+          )
+        )}
+      </div>
+      </div>
 
       {abierto && (
         <div style={{ padding: "0 0 12px" }}>
@@ -114,7 +139,6 @@ export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoIni
               Adelanto: S/ {Number(pedido.adelanto).toFixed(2)}
             </p>
           )}
-          {accion && <div style={{ marginTop: 10 }}>{accion}</div>}
         </div>
       )}
     </div>

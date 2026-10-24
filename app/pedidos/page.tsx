@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
-import { sincronizarPedido } from "@/lib/pedidos";
+import { quitarPedidoDeProduccion, sincronizarPedido } from "@/lib/pedidos";
 import PedidoDetalle from "@/components/PedidoDetalle";
 import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
 import EditarPedido from "@/components/EditarPedido";
@@ -169,6 +169,16 @@ function Contenido() {
     setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
     borrarBorrador("mip:pedido:nuevo");
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
+    cargar();
+  }
+
+  async function eliminarPedido(p: Pedido) {
+    setErr(null);
+    setMsg(null);
+    await quitarPedidoDeProduccion(p.id);
+    const { error } = await supabase.from("pedidos").delete().eq("id", p.id);
+    if (error) return setErr(error.message);
+    setMsg(`Pedido de ${p.cliente} eliminado.`);
     cargar();
   }
 
@@ -349,6 +359,7 @@ function Contenido() {
               key={p.id}
               pedido={p}
               nombres={nombres}
+              onEliminar={() => eliminarPedido(p)}
               accion={
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button className="btn btn-sm" onClick={() => setEditando(p)}>
