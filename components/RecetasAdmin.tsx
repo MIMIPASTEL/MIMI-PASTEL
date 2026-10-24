@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase, numero } from "@/lib/supabase";
 
 type Prod = { id: string; nombre: string; codigo?: string | null };
 type Insumo = { id: string; nombre: string; unidad_base: string };
+type Preparacion = { id: string; nombre: string; rendimiento: number; unidad: string };
 
 export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
   const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const [preparaciones, setPreparaciones] = useState<Preparacion[]>([]);
   const [prodId, setProdId] = useState("");
   const [rendimiento, setRendimiento] = useState("1");
   const [cant, setCant] = useState<Record<string, string>>({});
@@ -19,8 +21,12 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("insumos").select("id, nombre, unidad_base").eq("activo", true).order("nombre");
-      setInsumos((data ?? []) as Insumo[]);
+      const [ins, pre] = await Promise.all([
+        supabase.from("insumos").select("id, nombre, unidad_base").eq("activo", true).order("nombre"),
+        supabase.from("preparaciones").select("id, nombre, rendimiento, unidad").eq("activo", true).order("nombre"),
+      ]);
+      setInsumos((ins.data ?? []) as Insumo[]);
+      setPreparaciones((pre.data ?? []) as Preparacion[]);
     })();
   }, []);
 
@@ -28,7 +34,6 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
     setMsg(null);
     setErr(null);
     if (!prodId) return;
-
     const { data: rec } = await supabase
       .from("recetas")
       .select("id, version, rendimiento")
@@ -44,19 +49,19 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
       setCant({});
       return;
     }
-
     setRecetaId(rec.id);
     setVersion(rec.version);
     setRendimiento(String(Number(rec.rendimiento)));
 
     const { data: items } = await supabase
       .from("receta_items")
-      .select("insumo_id, cantidad")
+      .select("insumo_id, preparacion_id, cantidad")
       .eq("receta_id", rec.id);
 
     const m: Record<string, string> = {};
     (items ?? []).forEach((i: any) => {
-      m[i.insumo_id] = String(Number(i.cantidad));
+      if (i.insumo_id) m[`i:${i.insumo_id}`] = String(Number(i.cantidad));
+      if (i.preparacion_id) m[`p:${i.preparacion_id}`] = String(Number(i.cantidad));
     });
     setCant(m);
   }, [prodId]);
@@ -65,28 +70,20 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
     cargarReceta();
   }, [cargarReceta]);
 
-  const lineas = useMemo(
-    () => insumos.filter((i) => Number(cant[i.id] || 0) > 0),
-    [insumos, cant],
-  );
-
   async function guardar() {
     setErr(null);
     setMsg(null);
     if (!prodId) return setErr("Elige el producto.");
-    if (lineas.length === 0) return setErr("Agrega al menos un insumo.");
+    const deInsumos = insumos.filter((i) => Number(cant[`i:${i.id}`] || 0) > 0);
+    const dePreps = preparaciones.filter((p) => Number(cant[`p:${p.id}`] || 0) > 0);
+    if (deInsumos.length === 0 && dePreps.length === 0) return setErr("Agrega al menos un ingrediente.");
 
     setGuardando(true);
-
     let id = recetaId;
     if (!id) {
       const { data, error } = await supabase
         .from("recetas")
-        .insert({
-          producto_id: prodId,
-          version: 1,
-          rendimiento: Number(rendimiento || 1),
-        })
+        .insert({ producto_id: prodId, version: 1, rendimiento: Number(rendimiento || 1) })
         .select("id")
         .single();
       if (error || !data) {
@@ -101,15 +98,11 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
     }
 
     await supabase.from("receta_items").delete().eq("receta_id", id);
-
-    const { error: e2 } = await supabase.from("receta_items").insert(
-      lineas.map((i) => ({
-        receta_id: id,
-        insumo_id: i.id,
-        cantidad: Number(cant[i.id]),
-      })),
-    );
-
+    const filas = [
+      ...deInsumos.map((i) => ({ receta_id: id, insumo_id: i.id, cantidad: Number(cant[`i:${i.id}`]) })),
+      ...dePreps.map((p) => ({ receta_id: id, preparacion_id: p.id, cantidad: Number(cant[`p:${p.id}`]) })),
+    ];
+    const { error: e2 } = await supabase.from("receta_items").insert(filas);
     setGuardando(false);
     if (e2) return setErr(e2.message);
     setMsg("Receta guardada.");
@@ -119,8 +112,7 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
     <div className="card">
       <h2>Recetas</h2>
       <p className="sub" style={{ marginTop: -6 }}>
-        Cuánto insumo lleva una tanda de cada producto. Con esto el sistema calcula lo que se necesita
-        al producir.
+        Qué lleva cada producto por tanda. Puedes usar insumos directos o preparaciones base.
       </p>
 
       {err && <div className="alert err">{err}</div>}
@@ -140,14 +132,7 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
         </div>
         <div className="field">
           <label className="f">Rinde (unidades por tanda)</label>
-          <input
-            className="input num"
-            type="number"
-            min="1"
-            step="1"
-            value={rendimiento}
-            onChange={(e) => setRendimiento(e.target.value)}
-          />
+          <input className="input num" type="number" min="1" step="1" value={rendimiento} onChange={(e) => setRendimiento(e.target.value)} />
         </div>
       </div>
 
@@ -157,6 +142,41 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
             {recetaId ? `Versión ${version} de la receta` : "Este producto aún no tiene receta"}
           </p>
 
+          <h2 style={{ marginTop: 10 }}>Preparaciones base</h2>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Preparación</th>
+                  <th>Rinde</th>
+                  <th className="num">Cantidad por tanda</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preparaciones.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.nombre}</td>
+                    <td style={{ color: "var(--muted)", fontSize: 12 }}>
+                      {numero(p.rendimiento, 2)} {p.unidad}
+                    </td>
+                    <td className="num">
+                      <input
+                        className="input num"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={cant[`p:${p.id}`] ?? ""}
+                        onChange={(e) => setCant((c) => ({ ...c, [`p:${p.id}`]: e.target.value }))}
+                        style={{ width: 90, padding: "6px 8px" }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h2 style={{ marginTop: 16 }}>Insumos directos</h2>
           <div className="table-wrap">
             <table>
               <thead>
@@ -177,8 +197,8 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
                         type="number"
                         min="0"
                         step="0.01"
-                        value={cant[i.id] ?? ""}
-                        onChange={(e) => setCant((c) => ({ ...c, [i.id]: e.target.value }))}
+                        value={cant[`i:${i.id}`] ?? ""}
+                        onChange={(e) => setCant((c) => ({ ...c, [`i:${i.id}`]: e.target.value }))}
                         style={{ width: 90, padding: "6px 8px" }}
                       />
                     </td>
@@ -188,13 +208,7 @@ export default function RecetasAdmin({ productos }: { productos: Prod[] }) {
             </table>
           </div>
 
-          <p className="sub" style={{ marginTop: 8 }}>
-            Ejemplo: si rinde 12 y usas 2 kg de harina por tanda, producir 36 necesita{" "}
-            <strong>{numero((36 / Number(rendimiento || 1)) * Number(cant[insumos[0]?.id ?? ""] || 0), 2)}</strong>{" "}
-            {insumos[0]?.unidad_base ?? ""} de {insumos[0]?.nombre ?? "insumo"}.
-          </p>
-
-          <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={guardar} disabled={guardando}>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={guardar} disabled={guardando}>
             {guardando ? "Guardando…" : "Guardar receta"}
           </button>
         </>

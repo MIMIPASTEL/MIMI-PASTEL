@@ -36,7 +36,7 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
         .eq("estado", "pendiente")
         .order("creado_en"),
       supabase.from("lotes_produccion").select("producto_id, cantidad_producida").eq("fecha", fecha),
-      supabase.from("recetas").select("id, producto_id, version, rendimiento, receta_items(insumo_id, cantidad)"),
+      supabase.from("recetas").select("id, producto_id, version, rendimiento, receta_items(insumo_id, cantidad, preparacion_id, preparaciones(rendimiento, preparacion_items(insumo_id, cantidad)))"),
     ]);
 
     // Sugerido por receta: lotes producidos hoy x receta del producto
@@ -52,7 +52,15 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
       if (!r) return;
       const factor = Number(l.cantidad_producida) / Number(r.rendimiento || 1);
       (r.receta_items ?? []).forEach((it: any) => {
-        sug[it.insumo_id] = (sug[it.insumo_id] ?? 0) + factor * Number(it.cantidad);
+        if (it.insumo_id) {
+          sug[it.insumo_id] = (sug[it.insumo_id] ?? 0) + factor * Number(it.cantidad);
+        } else if (it.preparacion_id && it.preparaciones) {
+          // la receta usa una preparación base (masa): se expande a sus insumos
+          const factorPrep = Number(it.cantidad) / Number(it.preparaciones.rendimiento || 1);
+          ((it.preparaciones.preparacion_items ?? []) as any[]).forEach((pi) => {
+            sug[pi.insumo_id] = (sug[pi.insumo_id] ?? 0) + factor * factorPrep * Number(pi.cantidad);
+          });
+        }
       });
     });
     setSugerido(sug);
