@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import PedidoDetalle from "@/components/PedidoDetalle";
+import Despacho from "@/components/Despacho";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string };
@@ -348,6 +349,8 @@ function Contenido() {
           </p>
         </div>
       )}
+
+      <Despacho fecha={fecha} productos={productos} puntos={puntos} />
 
       <div className="card">
         <h2>Registrar producción</h2>

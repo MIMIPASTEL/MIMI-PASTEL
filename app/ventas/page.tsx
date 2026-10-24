@@ -39,11 +39,22 @@ function Contenido() {
   const [gastoMonto, setGastoMonto] = useState("");
   const [gastoConcepto, setGastoConcepto] = useState("");
   const [gastoCategoria, setGastoCategoria] = useState("movilidad");
+  const [promos, setPromos] = useState<any[]>([]);
   const [mostrarEnviado, setMostrarEnviado] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [draftListo, setDraftListo] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("promociones")
+        .select("id, nombre, cantidad, precio, promocion_productos(producto_id)")
+        .eq("activo", true);
+      setPromos(data ?? []);
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -189,6 +200,29 @@ function Contenido() {
   const gastoEfectivo = Number(gastoMonto || 0);
   const efectivoAEntregar = Number(efectivo || 0) - gastoEfectivo;
   const diferenciaDinero = totalCobrado - ventaNeta;
+
+  const sugerencias = useMemo(() => {
+    const out: { id: string; nombre: string; unidades: number; grupos: number; dto: number }[] = [];
+    (promos as any[]).forEach((pr) => {
+      const ids = new Set((pr.promocion_productos ?? []).map((x: any) => x.producto_id));
+      if (ids.size === 0) return;
+      let unidades = 0;
+      let valor = 0;
+      filas.forEach((f) => {
+        if (!ids.has(f.producto_id)) return;
+        const c = Number(f.vendido || 0);
+        unidades += c;
+        valor += c * Number(f.precio || 0);
+      });
+      const cant = Number(pr.cantidad);
+      const grupos = Math.floor(unidades / cant);
+      if (grupos === 0) return;
+      const promedio = unidades > 0 ? valor / unidades : 0;
+      const dto = Math.max(0, grupos * (promedio * cant - Number(pr.precio)));
+      out.push({ id: pr.id, nombre: pr.nombre, unidades, grupos, dto });
+    });
+    return out;
+  }, [promos, filas]);
 
   const puntosInvalidos = useMemo(
     () =>
@@ -544,9 +578,33 @@ function Contenido() {
           <div className="field">
             <label className="f">Descuentos y promociones (S/)</label>
             <input className="input num" type="number" min="0" step="0.1" value={descuento} onChange={(e) => setDescuento(e.target.value)} placeholder="0.00" />
-            <p className="sub" style={{ margin: "4px 0 0", fontSize: 12 }}>
-              Ej. promoción 3 pasteles por S/ 5
-            </p>
+            {sugerencias.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                {sugerencias.map((sg) => (
+                  <div
+                    key={sg.id}
+                    className="row"
+                    style={{ gap: 8, fontSize: 12.5, padding: "4px 0", borderTop: "1px solid #f3ebe5" }}
+                  >
+                    <span>
+                      {sg.nombre}: {sg.unidades} und → {sg.grupos} grupo(s) → {soles(sg.dto)}
+                    </span>
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={() => setDescuento(sg.dto.toFixed(2))}
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {sugerencias.length === 0 && (
+              <p className="sub" style={{ margin: "4px 0 0", fontSize: 12 }}>
+                Las promociones se calculan solas al llenar las cantidades vendidas.
+              </p>
+            )}
           </div>
           <div className="field">
             <label className="f">Gasto pagado con este efectivo (S/)</label>
