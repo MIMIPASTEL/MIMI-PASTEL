@@ -6,6 +6,7 @@ import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import { sincronizarPedido } from "@/lib/pedidos";
 import PedidoDetalle from "@/components/PedidoDetalle";
 import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
+import EditarPedido from "@/components/EditarPedido";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string };
@@ -49,6 +50,7 @@ function Contenido() {
   const [adelanto, setAdelanto] = useState("");
   const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
   const [draftListo, setDraftListo] = useState(false);
+  const [editando, setEditando] = useState<any>(null);
 
   const cargar = useCallback(async () => {
     const [p, pv, pe] = await Promise.all([
@@ -56,7 +58,7 @@ function Contenido() {
       supabase.from("puntos_venta").select("id, codigo").eq("activo", true).order("codigo"),
       supabase
         .from("pedidos")
-        .select("id, cliente, telefono, notas, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, nota, productos(nombre))")
+        .select("id, cliente, telefono, notas, fecha_entrega, hora_entrega, estado, adelanto, pedido_items(producto_id, cantidad, precio_unitario, tamano, nota, productos(nombre))")
         .order("fecha_entrega", { ascending: false })
         .limit(40),
     ]);
@@ -278,16 +280,33 @@ function Contenido() {
               pedido={p}
               nombres={nombres}
               accion={
-                p.estado !== "entregado" && p.estado !== "cancelado" ? (
-                  <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
-                    Sincronizar con producción
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn btn-sm" onClick={() => setEditando(p)}>
+                    Editar pedido
                   </button>
-                ) : null
+                  {p.estado !== "entregado" && p.estado !== "cancelado" && (
+                    <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
+                      Sincronizar con producción
+                    </button>
+                  )}
+                </div>
               }
             />
           ))
         )}
       </div>
+      {editando && (
+        <EditarPedido
+          pedido={editando}
+          productos={productos}
+          onClose={() => setEditando(null)}
+          onSaved={() => {
+            setEditando(null);
+            setMsg("Pedido actualizado y sincronizado con producción.");
+            cargar();
+          }}
+        />
+      )}
     </>
   );
 }

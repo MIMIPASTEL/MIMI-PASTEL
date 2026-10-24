@@ -84,6 +84,9 @@ export default function PedidoDetalle({ pedido, nombres = {}, accion, abiertoIni
                   S/ {Number(it.precio_unitario ?? 0).toFixed(2)} c/u
                 </span>
               </div>
+              {it.tamano && (
+                <p style={{ margin: "4px 0 0", fontSize: 13 }}>📏 Tamaño: {it.tamano}</p>
+              )}
               {it.nota ? (
                 <p style={{ margin: "6px 0 0", fontSize: 13.5, whiteSpace: "pre-wrap" }}>📝 {it.nota}</p>
               ) : (
