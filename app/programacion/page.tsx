@@ -127,12 +127,23 @@ function Contenido() {
   const totalFila = (puntoId: string) =>
     productos.reduce((a, p) => a + Number(celdas[clave(puntoId, p.id)] || 0), 0);
 
+  const totalPedido = (p: any) =>
+    (p.pedido_items ?? []).reduce((a: number, it: any) => a + Number(it.cantidad), 0);
+
+  const cantidadPedido = (p: any, prodId: string) =>
+    (p.pedido_items ?? [])
+      .filter((it: any) => it.producto_id === prodId)
+      .reduce((a: number, it: any) => a + Number(it.cantidad), 0);
+
   const totalCol = (prodId: string) =>
-    visibles.reduce((a, pv) => a + Number(celdas[clave(pv.id, prodId)] || 0), 0);
+    visibles.reduce((a, pv) => a + Number(celdas[clave(pv.id, prodId)] || 0), 0) +
+    pedidosDia.reduce((a, p) => a + cantidadPedido(p, prodId), 0);
 
   const granTotal = useMemo(
-    () => visibles.reduce((a, pv) => a + totalFila(pv.id), 0),
-    [visibles, productos, celdas],
+    () =>
+      visibles.reduce((a, pv) => a + totalFila(pv.id), 0) +
+      pedidosDia.reduce((a, p) => a + totalPedido(p), 0),
+    [visibles, productos, celdas, pedidosDia],
   );
 
   async function copiarAnterior() {
@@ -265,7 +276,11 @@ function Contenido() {
       reqId = nuevo.id;
     }
 
-    const { error: e1 } = await supabase.from("requerimiento_items").delete().eq("requerimiento_id", reqId);
+    const { error: e1 } = await supabase
+      .from("requerimiento_items")
+      .delete()
+      .eq("requerimiento_id", reqId)
+      .is("destino_pedido_id", null);
     if (e1) {
       setErr(e1.message);
       setGuardando(false);
@@ -468,6 +483,24 @@ function Contenido() {
                   <td className="num"><strong>{totalFila(pv.id) || ""}</strong></td>
                 </tr>
               ))}
+              {pedidosDia.map((p) => (
+                <tr key={`ped-${p.id}`} style={{ background: "#fdf4f7" }}>
+                  <td className="sticky" title="Pedido del día">
+                    🎂 {p.cliente}
+                  </td>
+                  {productos.map((pr) => {
+                    const q = cantidadPedido(p, pr.id);
+                    return (
+                      <td key={pr.id} className="num">
+                        {q > 0 ? q : ""}
+                      </td>
+                    );
+                  })}
+                  <td className="num">
+                    <strong>{totalPedido(p)}</strong>
+                  </td>
+                </tr>
+              ))}
               <tr>
                 <td className="sticky"><strong>Total</strong></td>
                 {productos.map((p) => (
@@ -486,7 +519,7 @@ function Contenido() {
         )}
 
         <p className="sub" style={{ margin: "10px 4px 0" }}>
-          Toca la <strong>×</strong> de un cliente cuando hoy no pidió: se quita de la parrilla sin borrar nada.
+          Toca la <strong>×</strong> de un cliente cuando hoy no pidió. Las filas con 🎂 son pedidos: se editan en la pestaña Pedidos.
         </p>
       </div>
 
