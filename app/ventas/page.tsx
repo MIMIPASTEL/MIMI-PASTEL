@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
+import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
 
 type Punto = { id: string; codigo: string; nombre: string; turno: number | null };
 type Prod = { id: string; nombre: string };
@@ -38,6 +39,7 @@ function Contenido() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [draftListo, setDraftListo] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -119,8 +121,7 @@ function Contenido() {
     }
 
     const base = productos.length > 0 ? productos : [];
-    setFilas(
-      base.map((p) => ({
+    const filasBase = base.map((p) => ({
         producto_id: p.id,
         nombre: p.nombre,
         enviado: enviados[p.id] ?? 0,
@@ -131,14 +132,33 @@ function Contenido() {
           ? String((sob as any[]).find((s: any) => s.producto_id === p.id).cantidad)
           : "",
         merma: "",
-      })),
-    );
+      }));
+
+    const d = leerBorrador<any>(`mip:ventas:${fecha}:${puntoId}`);
+    if (d && Array.isArray(d.filas) && d.filas.length > 0) {
+      setFilas(d.filas);
+      if (typeof d.efectivo === "string") setEfectivo(d.efectivo);
+      if (typeof d.yape === "string") setYape(d.yape);
+      if (typeof d.transferencia === "string") setTransferencia(d.transferencia);
+    } else {
+      setFilas(filasBase);
+    }
     setMostrarEnviado(Boolean(desp));
+    setDraftListo(true);
   }, [fecha, puntoId]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    if (!draftListo) return;
+    const t = setTimeout(
+      () => guardarBorrador(`mip:ventas:${fecha}:${puntoId}`, { filas, efectivo, yape, transferencia }),
+      700,
+    );
+    return () => clearTimeout(t);
+  }, [draftListo, filas, efectivo, yape, transferencia, fecha, puntoId]);
 
   function setCampo(idx: number, campo: keyof Fila, valor: string) {
     setFilas((f) => f.map((x, i) => (i === idx ? { ...x, [campo]: valor } : x)));
@@ -328,6 +348,7 @@ function Contenido() {
     }
 
     setGuardando(false);
+    borrarBorrador(`mip:ventas:${fecha}:${puntoId}`);
     setMsg("Cierre guardado. Revisa las diferencias abajo.");
     setMostrarEnviado(true);
     cargar();

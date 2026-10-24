@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, numero, fechaCorta } from "@/lib/supabase";
 import PedidoDetalle from "@/components/PedidoDetalle";
+import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
 
 type Prod = { id: string; codigo: string | null; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string; tipo: string; es_fijo: boolean };
@@ -31,6 +32,9 @@ function Contenido() {
   const [abrirNuevo, setAbrirNuevo] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [pedidosDia, setPedidosDia] = useState<any[]>([]);
+  const [draftDisponible, setDraftDisponible] = useState(false);
+  const [listo, setListo] = useState(false);
+  const [snapshot, setSnapshot] = useState("");
 
   const clave = (puntoId: string, prodId: string) => `${puntoId}|${prodId}`;
 
@@ -57,6 +61,7 @@ function Contenido() {
   }, []);
 
   const cargarDia = useCallback(async () => {
+    setListo(false);
     const [req, om, pe] = await Promise.all([
       supabase.from("requerimientos").select("id").eq("fecha", fecha).maybeSingle(),
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
@@ -71,20 +76,28 @@ function Contenido() {
     setOmitidos(new Set(((om.data ?? []) as any[]).map((x) => x.punto_venta_id)));
     setPedidosDia((pe.data ?? []) as any[]);
 
-    if (!req.data) {
-      setCeldas({});
-      return;
-    }
-    const { data: its } = await supabase
-      .from("requerimiento_items")
-      .select("producto_id, destino_punto_id, cantidad")
-      .eq("requerimiento_id", req.data.id)
-      .not("destino_punto_id", "is", null);
     const m: Record<string, string> = {};
-    (its ?? []).forEach((i: any) => {
-      m[`${i.destino_punto_id}|${i.producto_id}`] = String(Number(i.cantidad));
-    });
-    setCeldas(m);
+    if (req.data) {
+      const { data: its } = await supabase
+        .from("requerimiento_items")
+        .select("producto_id, destino_punto_id, cantidad")
+        .eq("requerimiento_id", req.data.id)
+        .not("destino_punto_id", "is", null);
+      (its ?? []).forEach((i: any) => {
+        m[`${i.destino_punto_id}|${i.producto_id}`] = String(Number(i.cantidad));
+      });
+    }
+
+    const borrador = leerBorrador<Record<string, string>>(`mip:prog:${fecha}`);
+    if (borrador && Object.keys(borrador).length > 0) {
+      setCeldas({ ...m, ...borrador });
+      setDraftDisponible(true);
+    } else {
+      setCeldas(m);
+      setDraftDisponible(false);
+    }
+    setSnapshot(JSON.stringify(m));
+    setListo(true);
   }, [fecha]);
 
   useEffect(() => {
@@ -94,6 +107,18 @@ function Contenido() {
   useEffect(() => {
     cargarDia();
   }, [cargarDia]);
+
+  // guarda lo digitado aunque no se haya pulsado "Guardar"
+  useEffect(() => {
+    if (!listo) return;
+    const actual = JSON.stringify(celdas);
+    if (actual === snapshot) return;
+    const t = setTimeout(() => {
+      guardarBorrador(`mip:prog:${fecha}`, celdas);
+      setDraftDisponible(true);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [celdas, listo, fecha, snapshot]);
 
   function setCelda(puntoId: string, prodId: string, v: string) {
     setCeldas((c) => ({ ...c, [clave(puntoId, prodId)]: v }));
@@ -210,6 +235,13 @@ function Contenido() {
     setMsg(`Cliente eventual ${codigo} agregado.`);
   }
 
+  async function descartarBorrador() {
+    borrarBorrador(`mip:prog:${fecha}`);
+    setDraftDisponible(false);
+    setListo(false);
+    await cargarDia();
+  }
+
   async function guardar() {
     setErr(null);
     setMsg(null);
@@ -267,6 +299,9 @@ function Contenido() {
     }
 
     await supabase.from("requerimientos").update({ estado: "publicado" }).eq("id", reqId);
+    borrarBorrador(`mip:prog:${fecha}`);
+    setDraftDisponible(false);
+    setSnapshot(JSON.stringify(celdas));
     setGuardando(false);
     setMsg(
       `Programación guardada: ${filas.length} destinos · ${numero(granTotal)} unidades` +
@@ -300,6 +335,15 @@ function Contenido() {
 
       {err && <div className="alert err">{err}</div>}
       {msg && <div className="alert ok">{msg}</div>}
+
+      {draftDisponible && (
+        <div className="alert" style={{ background: "var(--warn-soft)", color: "var(--warn)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <span>Recuperé lo que estabas digitando. Guárdalo para fijarlo.</span>
+          <button className="btn btn-sm" type="button" onClick={descartarBorrador}>
+            Descartar
+          </button>
+        </div>
+      )}
 
       <div className="card">
         <div className="grid grid-2">

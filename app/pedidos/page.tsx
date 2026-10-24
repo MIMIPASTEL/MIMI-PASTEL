@@ -5,6 +5,7 @@ import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import { sincronizarPedido } from "@/lib/pedidos";
 import PedidoDetalle from "@/components/PedidoDetalle";
+import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string };
@@ -47,6 +48,7 @@ function Contenido() {
   const [puntoId, setPuntoId] = useState("");
   const [adelanto, setAdelanto] = useState("");
   const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
+  const [draftListo, setDraftListo] = useState(false);
 
   const cargar = useCallback(async () => {
     const [p, pv, pe] = await Promise.all([
@@ -66,6 +68,31 @@ function Contenido() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // recupera el formulario a medio llenar
+  useEffect(() => {
+    const d = leerBorrador<any>("mip:pedido:nuevo");
+    if (d) {
+      if (typeof d.cliente === "string") setCliente(d.cliente);
+      if (typeof d.telefono === "string") setTelefono(d.telefono);
+      if (typeof d.fecha === "string") setFecha(d.fecha);
+      if (typeof d.hora === "string") setHora(d.hora);
+      if (typeof d.puntoId === "string") setPuntoId(d.puntoId);
+      if (typeof d.adelanto === "string") setAdelanto(d.adelanto);
+      if (Array.isArray(d.lineas) && d.lineas.length > 0) setLineas(d.lineas);
+    }
+    setDraftListo(true);
+  }, []);
+
+  // autoguardado del formulario
+  useEffect(() => {
+    if (!draftListo) return;
+    const t = setTimeout(
+      () => guardarBorrador("mip:pedido:nuevo", { cliente, telefono, fecha, hora, puntoId, adelanto, lineas }),
+      600,
+    );
+    return () => clearTimeout(t);
+  }, [draftListo, cliente, telefono, fecha, hora, puntoId, adelanto, lineas]);
 
   function setLinea(i: number, campo: keyof Linea, v: string) {
     setLineas((l) => l.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
@@ -117,6 +144,7 @@ function Contenido() {
     setHora("");
     setAdelanto("");
     setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "" }]);
+    borrarBorrador("mip:pedido:nuevo");
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
   }
