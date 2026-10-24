@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabase, soles } from "@/lib/supabase";
-import { sincronizarPedido } from "@/lib/pedidos";
+import { quitarPedidoDeProduccion, sincronizarPedido } from "@/lib/pedidos";
 
 type Prod = { id: string; nombre: string };
 type Linea = { producto_id: string; cantidad: string; precio: string; tamano: string; nota: string };
@@ -12,11 +12,13 @@ export default function EditarPedido({
   productos,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   pedido: any;
   productos: Prod[];
   onClose: () => void;
   onSaved: () => void;
+  onDeleted?: () => void;
 }) {
   const [cliente, setCliente] = useState(pedido.cliente ?? "");
   const [telefono, setTelefono] = useState(pedido.telefono ?? "");
@@ -36,6 +38,7 @@ export default function EditarPedido({
   );
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   function setLinea(i: number, campo: keyof Linea, v: string) {
     setLineas((l) => l.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
@@ -97,6 +100,20 @@ export default function EditarPedido({
     await sincronizarPedido(pedido.id);
     setGuardando(false);
     onSaved();
+  }
+
+  async function eliminar() {
+    setErr(null);
+    setGuardando(true);
+    await quitarPedidoDeProduccion(pedido.id);
+    const { error } = await supabase.from("pedidos").delete().eq("id", pedido.id);
+    setGuardando(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    if (onDeleted) onDeleted();
+    else onSaved();
   }
 
   return (
@@ -229,11 +246,34 @@ export default function EditarPedido({
           </div>
         </div>
 
-        <div className="row" style={{ marginTop: 8 }}>
-          <strong>Total: {soles(total)}</strong>
-          <button className="btn btn-primary" onClick={guardar} disabled={guardando} type="button">
-            {guardando ? "Guardando…" : "Guardar cambios"}
-          </button>
+        <div className="row" style={{ marginTop: 8, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {!confirmando ? (
+              <button
+                className="btn btn-sm btn-danger"
+                type="button"
+                onClick={() => setConfirmando(true)}
+              >
+                Eliminar pedido
+              </button>
+            ) : (
+              <>
+                <span style={{ fontSize: 13 }}>¿Eliminar definitivamente?</span>
+                <button className="btn btn-sm btn-danger" type="button" onClick={eliminar} disabled={guardando}>
+                  Sí, eliminar
+                </button>
+                <button className="btn btn-sm" type="button" onClick={() => setConfirmando(false)}>
+                  No
+                </button>
+              </>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <strong>Total: {soles(total)}</strong>
+            <button className="btn btn-primary" onClick={guardar} disabled={guardando} type="button">
+              {guardando ? "Guardando…" : "Guardar cambios"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

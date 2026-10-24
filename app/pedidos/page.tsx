@@ -305,6 +305,11 @@ function Contenido() {
             setMsg("Pedido actualizado y sincronizado con producción.");
             cargar();
           }}
+          onDeleted={() => {
+            setEditando(null);
+            setMsg("Pedido eliminado y retirado de producción.");
+            cargar();
+          }}
         />
       )}
     </>
