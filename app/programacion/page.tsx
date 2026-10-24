@@ -34,25 +34,28 @@ function Contenido() {
   const [pedidosDia, setPedidosDia] = useState<any[]>([]);
   const [draftDisponible, setDraftDisponible] = useState(false);
   const [listo, setListo] = useState(false);
+  const [baseVisibles, setBaseVisibles] = useState<Set<string>>(new Set());
   const [snapshot, setSnapshot] = useState("");
 
   const clave = (puntoId: string, prodId: string) => `${puntoId}|${prodId}`;
 
-  // Fijos: siempre. Eventuales: solo si tienen requerimiento en esta fecha
-  // (o si se activa el interruptor para ver el catalogo completo).
+  // Solo se muestran los clientes que tienen algo llenado. Los pedidos van
+  // como fila aparte (🎂). Si el día está vacío, se muestran los fijos para
+  // poder programar desde cero.
   const visibles = useMemo(() => {
-    const conRequerimiento = new Set(
-      Object.keys(celdas)
-        .map((k) => k.split("|")[0])
+    const conValor = new Set(
+      Object.entries(celdas)
+        .filter(([, v]) => Number(v) > 0)
+        .map(([k]) => k.split("|")[0])
         .filter(Boolean),
     );
-    return puntos.filter((p) => {
-      if (omitidos.has(p.id)) return false;
-      if (p.es_fijo) return true;
-      if (verEventuales) return true;
-      return conRequerimiento.has(p.id);
-    });
-  }, [puntos, verEventuales, omitidos, celdas]);
+    const activos = puntos.filter((p) => !omitidos.has(p.id));
+    if (verEventuales) return activos;
+
+    const conDatos = activos.filter((p) => baseVisibles.has(p.id) || conValor.has(p.id));
+    if (conDatos.length === 0) return activos.filter((p) => p.es_fijo);
+    return conDatos;
+  }, [puntos, verEventuales, omitidos, baseVisibles, celdas]);
 
   const cargarBase = useCallback(async () => {
     const [p, pv] = await Promise.all([
@@ -105,6 +108,7 @@ function Contenido() {
       setCeldas(m);
       setDraftDisponible(false);
     }
+    setBaseVisibles(new Set(Object.keys(m).map((k) => k.split("|")[0]).filter(Boolean)));
     setSnapshot(JSON.stringify(m));
     setListo(true);
   }, [fecha]);
@@ -398,7 +402,7 @@ function Contenido() {
               onChange={(e) => setVerEventuales(e.target.checked)}
               style={{ width: 16, height: 16 }}
             />
-            Ver todos los eventuales ({puntos.filter((p) => !p.es_fijo).length})
+            Ver todos los clientes ({puntos.filter((p) => !p.es_fijo).length})
           </label>
 
           <button className="btn btn-sm" type="button" onClick={() => setAbrirNuevo((v) => !v)}>
