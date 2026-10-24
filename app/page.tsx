@@ -1,5 +1,18 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  redirect("/hoy");
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/hoy");
+  }, [router]);
+
+  return (
+    <div className="login-wrap">
+      <p className="sub">Cargando…</p>
+    </div>
+  );
 }

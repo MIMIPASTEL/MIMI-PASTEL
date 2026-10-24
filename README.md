@@ -4,6 +4,8 @@ Producción, despacho, ventas, caja y utilidad diaria para la pastelería Mimi P
 
 **Stack:** Next.js 15 · React 19 · Supabase (Postgres + Auth + RLS) · GitHub
 
+**En línea:** https://mimipastel.github.io/MIMI-PASTEL/
+
 ---
 
 ## Qué hace hoy

@@ -20,6 +20,7 @@ desktop.ini
 
 # Herramientas locales (git portable, CLI de Supabase)
 .tools/
+.deploy/
 
 # Logs y temporales
 *.log
