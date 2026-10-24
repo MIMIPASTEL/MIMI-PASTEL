@@ -11,6 +11,7 @@ Producción, despacho, ventas, caja y utilidad diaria para la pastelería Mimi P
 | Pantalla | Para quién | Qué registra |
 |---|---|---|
 | **Hoy** | Dueña | Utilidad del día, ventas por canal, diferencias de cuadre, pedidos pendientes |
+| **Programar** | Dueña | Parrilla cliente × producto (como la hoja SGMP), con totales y copia del día anterior |
 | **Producción** | Personal de taller | Requerimiento del día, lote producido con su costo, mermas |
 | **Ventas** | Vendedoras | Conteo ciego de lo recibido, vendido, sobrantes, mermas y dinero (efectivo / Yape / transferencia) |
 | **Pedidos** | Dueña / ventas | Cliente, fecha de entrega, precio propio por pedido, paso al requerimiento |

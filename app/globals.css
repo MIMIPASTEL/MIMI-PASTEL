@@ -56,7 +56,7 @@ a { color: inherit; text-decoration: none; }
   bottom: 0; left: 0; right: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: var(--surface);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
@@ -82,7 +82,7 @@ a { color: inherit; text-decoration: none; }
     border-bottom: 1px solid var(--line);
     max-width: 1080px;
     margin: 0 auto;
-    grid-template-columns: repeat(5, auto);
+    grid-template-columns: repeat(6, auto);
     justify-content: start;
     gap: 4px;
     background: transparent;
@@ -186,3 +186,55 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* ---------- Login ---------- */
 .login-wrap { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: 100%; max-width: 380px; }
+
+/* ---------- Parrilla de programación ---------- */
+.grid-prog { border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+.grid-prog th {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.grid-prog th.prod {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  height: 88px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 6px 2px;
+}
+.grid-prog td { padding: 2px; border-bottom: 1px solid #f6efe9; }
+.grid-prog .sticky {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 2;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 1px 0 0 var(--line);
+  padding-left: 6px;
+}
+.grid-prog input {
+  width: 52px;
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+  background: #fff;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.grid-prog input:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+.grid-prog tbody tr:last-child td {
+  border-top: 2px solid var(--line);
+  border-bottom: none;
+  padding-top: 8px;
+}
