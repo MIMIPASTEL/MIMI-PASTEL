@@ -44,7 +44,7 @@ function Contenido() {
 
   const cargarBase = useCallback(async () => {
     const [p, pv] = await Promise.all([
-      supabase.from("productos").select("id, codigo, nombre").eq("activo", true).order("codigo"),
+      supabase.from("productos").select("id, codigo, nombre").eq("activo", true).order("orden", { ascending: true }).order("codigo"),
       supabase
         .from("puntos_venta")
         .select("id, codigo, nombre, tipo, es_fijo")

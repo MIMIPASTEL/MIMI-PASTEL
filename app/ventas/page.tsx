@@ -60,7 +60,7 @@ function Contenido() {
       .from("productos")
       .select("id, nombre")
       .eq("activo", true)
-      .order("nombre");
+      .order("orden", { ascending: true });
     const productos = (prods ?? []) as Prod[];
 
     const { data: desp } = await supabase
