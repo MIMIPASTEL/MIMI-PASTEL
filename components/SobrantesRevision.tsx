@@ -28,10 +28,12 @@ export default function SobrantesRevision({
   fecha,
   productos,
   puntos,
+  onSaved,
 }: {
   fecha: string;
   productos: Prod[];
   puntos: Punto[];
+  onSaved?: () => void;
 }) {
   const ayer = restarDia(fecha);
   const [filas, setFilas] = useState<Fila[]>([]);
@@ -134,12 +136,13 @@ export default function SobrantesRevision({
     setGuardando(false);
     setMsg("Revisión guardada: el sobrante útil ya alimenta la producción de hoy.");
     cargar();
+    if (onSaved) onSaved();
   }
 
   if (filas.length === 0) {
     return (
       <div className="card">
-        <h2>Sobrantes de ayer</h2>
+        <h2>1 · Sobrantes de ayer</h2>
         <p className="empty">La vendedora no registró sobrantes para el {ayer}.</p>
       </div>
     );
@@ -147,7 +150,7 @@ export default function SobrantesRevision({
 
   return (
     <div className="card">
-      <h2>Sobrantes de ayer · ¿cuánto sirve?</h2>
+      <h2>1 · Sobrantes de ayer · ¿cuánto sirve?</h2>
       <p className="sub" style={{ marginTop: -6 }}>
         Revisa lo que devolvieron. Lo que no se pueda vender se registra como merma.
       </p>

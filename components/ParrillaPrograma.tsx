@@ -6,6 +6,13 @@ import { supabase, numero } from "@/lib/supabase";
 type Prod = { id: string; codigo?: string | null; nombre: string };
 type Punto = { id: string; codigo: string; es_fijo?: boolean };
 
+function restarDia(iso: string) {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export default function ParrillaPrograma({
   fecha,
   productos,
@@ -29,7 +36,7 @@ export default function ParrillaPrograma({
         .select("id, cliente, pedido_items(producto_id, cantidad)")
         .eq("fecha_entrega", fecha)
         .neq("estado", "cancelado"),
-      supabase.from("v_sugerido_produccion").select("producto_id, sobrante_ayer").eq("fecha", fecha),
+      supabase.from("sobrantes").select("producto_id, cantidad, cantidad_reutilizable").eq("fecha", restarDia(fecha)),
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
     ]);
 
@@ -52,7 +59,8 @@ export default function ParrillaPrograma({
 
     const sm: Record<string, number> = {};
     ((sug.data ?? []) as any[]).forEach((x) => {
-      sm[x.producto_id] = (sm[x.producto_id] ?? 0) + Number(x.sobrante_ayer);
+      const util = x.cantidad_reutilizable === null ? Number(x.cantidad) : Number(x.cantidad_reutilizable);
+      sm[x.producto_id] = (sm[x.producto_id] ?? 0) + util;
     });
     setSobrante(sm);
     setCargando(false);
@@ -105,7 +113,7 @@ export default function ParrillaPrograma({
   return (
     <div className="card">
       <div className="row" style={{ marginBottom: 10 }}>
-        <h2 style={{ margin: 0 }}>Programación del día</h2>
+        <h2 style={{ margin: 0 }}>2 · Programación del día</h2>
         <button className="btn btn-sm" onClick={cargar} type="button">
           Actualizar
         </button>

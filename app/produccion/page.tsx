@@ -23,6 +23,7 @@ function Contenido() {
   const [fecha, setFecha] = useState(hoyISO());
   const [productos, setProductos] = useState<Prod[]>([]);
   const [puntos, setPuntos] = useState<Punto[]>([]);
+  const [v, setV] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -48,23 +49,28 @@ function Contenido() {
 
   return (
     <>
-      <h1>Producción</h1>
-      <p className="sub">{fechaCorta(fecha)} · lo que hay que producir y enviar</p>
-
-      <div className="card">
-        <label className="f">Fecha</label>
+      <div className="row" style={{ alignItems: "flex-start", marginBottom: 12, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ marginBottom: 2 }}>Producción</h1>
+          <p className="sub" style={{ margin: 0 }}>{fechaCorta(fecha)} · producir y enviar</p>
+        </div>
         <input
           className="input"
           type="date"
           value={fecha}
           onChange={(e) => setFecha(e.target.value)}
-          style={{ maxWidth: 200 }}
+          style={{ maxWidth: 170 }}
         />
       </div>
 
-      <SobrantesRevision fecha={fecha} productos={productos} puntos={puntos} />
+      <SobrantesRevision
+        fecha={fecha}
+        productos={productos}
+        puntos={puntos}
+        onSaved={() => setV((x) => x + 1)}
+      />
 
-      <ParrillaPrograma fecha={fecha} productos={productos} puntos={puntos} />
+      <ParrillaPrograma key={v} fecha={fecha} productos={productos} puntos={puntos} />
 
       <Despacho fecha={fecha} productos={productos} puntos={puntos} />
 
