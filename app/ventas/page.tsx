@@ -462,11 +462,6 @@ function Contenido() {
     );
 
     await cargar();
-    setEfectivo("");
-    setYape("");
-    setTransferencia("");
-    setGasto("");
-    setPromoGrupos("");
 
     setGuardando(false);
     setMsg(
@@ -474,7 +469,6 @@ function Contenido() {
         Math.abs(diferenciaDinero) < 0.01 ? "caja cuadrada" : "diferencia " + soles(diferenciaDinero)
       }`,
     );
-    cargar();
   }
 
   const puntoActual = puntos.find((p) => p.id === puntoId);
