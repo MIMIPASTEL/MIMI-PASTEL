@@ -61,7 +61,7 @@ function Contenido() {
           .order("orden"),
         supabase
           .from("promociones")
-          .select("id, nombre, cantidad, precio")
+          .select("id, nombre, cantidad, precio, promocion_productos(producto_id)")
           .eq("activo", true)
           .limit(1),
       ]);
@@ -239,15 +239,26 @@ function Contenido() {
   const totalVendido = filas.reduce((a, f) => a + vendido(f), 0);
   const ventaBruta = filas.reduce((a, f) => a + vendido(f) * de(f, "precio"), 0);
 
-  // Cada grupo promocional cuesta lo mismo que su descuento:
-  // 3 por S/ 5 con pastel a S/ 2 = S/ 1 de descuento por grupo.
-  const PRECIO_BASE = 2;
+  // Descuento de promociones: usa el precio real de los productos que participan
   const descuentoPromo = useMemo(() => {
     const grupos = Number(promoGrupos || 0);
     if (!promo || grupos === 0 || ventaBruta <= 0) return 0;
-    const porGrupo = Number(promo.cantidad) * PRECIO_BASE - Number(promo.precio);
+
+    const ids = new Set(((promo.promocion_productos ?? []) as any[]).map((x) => x.producto_id));
+    let unidades = 0;
+    let valor = 0;
+    filas.forEach((f) => {
+      if (ids.size > 0 && !ids.has(f.producto_id)) return;
+      const c = vendido(f);
+      unidades += c;
+      valor += c * de(f, "precio");
+    });
+    if (unidades === 0) return 0;
+
+    const promedio = valor / unidades;
+    const porGrupo = Number(promo.cantidad) * promedio - Number(promo.precio);
     return Math.max(0, grupos * Math.max(0, porGrupo));
-  }, [promo, promoGrupos, ventaBruta]);
+  }, [promo, promoGrupos, ventaBruta, filas]);
 
   const ventaNeta = ventaBruta - descuentoPromo;
   const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
