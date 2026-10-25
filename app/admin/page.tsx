@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import RecetasAdmin from "@/components/RecetasAdmin";
 import RegistroProduccion from "@/components/RegistroProduccion";
+import CostosAdmin from "@/components/CostosAdmin";
 import InsumosProduccion from "@/components/InsumosProduccion";
 import { hoyISO } from "@/lib/supabase";
 import { supabase, soles } from "@/lib/supabase";
@@ -401,6 +402,8 @@ function Contenido() {
       </div>
 
       <RecetasAdmin productos={productos} />
+
+      <CostosAdmin />
 
       <RegistroProduccion productos={productos} />
 
