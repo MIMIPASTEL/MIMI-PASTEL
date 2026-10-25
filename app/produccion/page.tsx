@@ -255,90 +255,11 @@ function Contenido() {
       {err && <div className="alert err">{err}</div>}
       {msg && <div className="alert ok">{msg}</div>}
 
-      <div className="card">
-        <div className="row" style={{ marginBottom: 10 }}>
-          <h2 style={{ margin: 0 }}>Requerimiento · {fechaCorta(fecha)}</h2>
-          {reqId && <span className="badge neutral">{items.length} ítems</span>}
-        </div>
-
-        {items.length === 0 ? (
-          <p className="empty">Sin requerimiento. Agrega el primero abajo.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th className="num">Cantidad</th>
-                  <th>Destino</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => (
-                  <tr key={it.id}>
-                    <td>{nombreProd(it.producto_id)}</td>
-                    <td className="num">{numero(it.cantidad)}</td>
-                    <td>{nombreDestino(it)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <button className="btn btn-sm btn-danger" onClick={() => quitarItem(it.id)}>
-                        Quitar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {items.length > 0 && (
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={publicar}>
-            Publicar requerimiento
-          </button>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Agregar al requerimiento</h2>
-        <form onSubmit={agregarItem}>
-          <div className="grid grid-3">
-            <div className="field">
-              <label className="f">Producto</label>
-              <select className="input" value={nuevoProd} onChange={(e) => setNuevoProd(e.target.value)}>
-                <option value="">—</option>
-                {productos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label className="f">Cantidad</label>
-              <input
-                className="input num"
-                type="number"
-                min="0"
-                step="1"
-                value={nuevaCant}
-                onChange={(e) => setNuevaCant(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label className="f">Destino</label>
-              <select className="input" value={nuevoDestino} onChange={(e) => setNuevoDestino(e.target.value)}>
-                <option value="">—</option>
-                {puntos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <button className="btn btn-primary">Agregar</button>
-        </form>
+      <div className="card" style={{ padding: "10px 14px" }}>
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>
+          La programación se edita en la pestaña <strong>Programar</strong>. Aquí solo se registra
+          lo que se produce y lo que se envía.
+        </span>
       </div>
 
       {pedidosDia.length > 0 && (
