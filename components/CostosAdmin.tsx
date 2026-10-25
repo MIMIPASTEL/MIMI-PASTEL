@@ -57,6 +57,8 @@ export default function CostosAdmin() {
         gas_dia: num("gas_dia"),
         luz_dia: num("luz_dia"),
         otros_dia: num("otros_dia"),
+        ventas_dia: num("ventas_dia"),
+        chofer_dia: num("chofer_dia"),
         unidades_dia: Math.max(1, num("unidades_dia")),
         actualizado_en: new Date().toISOString(),
       })
@@ -107,6 +109,31 @@ export default function CostosAdmin() {
         <div className="field">
           <label className="f">Costo fijo por unidad</label>
           <div className="input num" style={{ background: "#f7f3ef" }}>{soles(fijoUnitario)}</div>
+        </div>
+      </div>
+
+      <button className="btn btn-sm" onClick={guardar} disabled={guardando}>
+        {guardando ? "Guardando…" : "Guardar parámetros"}
+      </button>
+
+      <h2 style={{ marginTop: 18 }}>Gastos operativos (van al resultado del día)</h2>
+      <p className="sub" style={{ marginTop: -6 }}>
+        No entran al costo unitario: se restan de la utilidad del día.
+      </p>
+      <div className="grid grid-3">
+        <div className="field">
+          <label className="f">Vendedoras (S/ por día)</label>
+          <input className="input num" type="number" min="0" step="0.5" value={params?.ventas_dia ?? ""} onChange={(e) => set("ventas_dia", e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="f">Chofer (S/ por día)</label>
+          <input className="input num" type="number" min="0" step="0.5" value={params?.chofer_dia ?? ""} onChange={(e) => set("chofer_dia", e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="f">Total operativo por día</label>
+          <div className="input num" style={{ background: "#f7f3ef" }}>
+            {soles(num("ventas_dia") + num("chofer_dia"))}
+          </div>
         </div>
       </div>
 

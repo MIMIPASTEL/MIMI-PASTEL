@@ -23,6 +23,7 @@ function Contenido() {
   const [pedidos, setPedidos] = useState<Fila[]>([]);
   const [caja, setCaja] = useState<{ ing: number; sal: number }>({ ing: 0, sal: 0 });
   const [costos, setCostos] = useState<any>(null);
+  const [gastosOper, setGastosOper] = useState(0);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
 
@@ -37,7 +38,7 @@ function Contenido() {
       (pv.data ?? []).forEach((p: any) => (map[p.id] = p.codigo));
       setNombres(map);
 
-      const [u, c, q, pe, mv, co] = await Promise.all([
+      const [u, c, q, pe, mv, co, pc] = await Promise.all([
         supabase.from("v_utilidad_dia").select("*").eq("fecha", hoy).maybeSingle(),
         supabase.from("v_ventas_por_canal").select("*").eq("fecha", hoy),
         supabase.from("v_cuadre_unidades").select("*").eq("fecha", hoy).neq("diferencia", 0),
@@ -49,6 +50,7 @@ function Contenido() {
           .order("fecha_entrega"),
         supabase.from("movimientos_caja").select("tipo, monto").eq("fecha", hoy),
         supabase.from("v_costos_dia").select("*").eq("fecha", hoy).maybeSingle(),
+        supabase.from("parametros_costeo").select("ventas_dia, chofer_dia").eq("id", 1).maybeSingle(),
       ]);
 
       setUtilidad(u.data ?? null);
@@ -60,12 +62,13 @@ function Contenido() {
       const sal = (mv.data ?? []).filter((m: any) => m.tipo === "salida").reduce((a: number, m: any) => a + Number(m.monto), 0);
       setCaja({ ing, sal });
       setCostos(co.data ?? null);
+      setGastosOper(Number(pc.data?.ventas_dia ?? 0) + Number(pc.data?.chofer_dia ?? 0));
       setCargando(false);
     })();
   }, [hoy]);
 
   const ventas = Number(utilidad?.ventas ?? 0);
-  const util = Number(utilidad?.utilidad ?? 0);
+  const util = Number(utilidad?.utilidad ?? 0) - gastosOper;
   const margen = ventas > 0 ? (util / ventas) * 100 : 0;
 
   const diferenciaTotal = useMemo(
