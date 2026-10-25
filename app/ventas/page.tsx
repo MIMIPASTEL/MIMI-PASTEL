@@ -144,7 +144,9 @@ function Contenido() {
         .select("promociones, descuento")
         .eq("fecha", fecha)
         .eq("punto_venta_id", puntoId)
-        .eq("turno", turno),
+        .eq("turno", turno)
+        .order("creado_en", { ascending: false })
+        .limit(1),
       supabase
         .from("movimientos_caja")
         .select("monto")
@@ -188,7 +190,7 @@ function Contenido() {
     }
 
     if (!cierre) {
-      const promoVendidas = ((vt.data ?? []) as any[]).reduce((a, x) => a + Number(x.promociones ?? 0), 0);
+      const promoVendidas = Number(((vt.data ?? []) as any[])[0]?.promociones ?? 0);
       setPromoGrupos(promoVendidas ? String(promoVendidas) : "");
 
       const totalGastos = ((mv.data ?? []) as any[]).reduce((a, x) => a + Number(x.monto), 0);
