@@ -159,13 +159,32 @@ function Contenido() {
         .eq("tipo", "vitrina"),
     ]);
 
+    // si ya hay un cierre guardado para este turno, se usa tal cual
+    const { data: cierre } = await supabase
+      .from("cuadres")
+      .select("efectivo, yape, transferencia, gasto, promociones, descuento")
+      .eq("fecha", fecha)
+      .eq("punto_venta_id", puntoId)
+      .eq("turno", turno)
+      .maybeSingle();
+
+    if (cierre) {
+      setEfectivo(Number(cierre.efectivo) ? String(cierre.efectivo) : "");
+      setYape(Number(cierre.yape) ? String(cierre.yape) : "");
+      setTransferencia(Number(cierre.transferencia) ? String(cierre.transferencia) : "");
+      setGasto(Number(cierre.gasto) ? String(cierre.gasto) : "");
+      setPromoGrupos(Number(cierre.promociones) ? String(cierre.promociones) : "");
+    }
+
     const porMedio: Record<string, number> = {};
     ((pg.data ?? []) as any[]).forEach((x) => {
       porMedio[x.medio] = (porMedio[x.medio] ?? 0) + Number(x.monto);
     });
-    setEfectivo(porMedio["efectivo"] ? String(porMedio["efectivo"]) : "");
-    setYape(porMedio["yape"] ? String(porMedio["yape"]) : "");
-    setTransferencia(porMedio["transferencia"] ? String(porMedio["transferencia"]) : "");
+    if (!cierre) {
+      setEfectivo(porMedio["efectivo"] ? String(porMedio["efectivo"]) : "");
+      setYape(porMedio["yape"] ? String(porMedio["yape"]) : "");
+      setTransferencia(porMedio["transferencia"] ? String(porMedio["transferencia"]) : "");
+    }
 
     const promoVendidas = ((vt.data ?? []) as any[]).reduce((a, x) => a + Number(x.promociones ?? 0), 0);
     setPromoGrupos(promoVendidas ? String(promoVendidas) : "");
@@ -424,6 +443,12 @@ function Contenido() {
         unidades_contadas: filas.reduce((a, f) => a + (f.contado === "" ? 0 : Number(f.contado)), 0),
         dinero_esperado: ventaNeta,
         dinero_contado: cobrado,
+        efectivo: Number(efectivo || 0),
+        yape: Number(yape || 0),
+        transferencia: Number(transferencia || 0),
+        gasto: Number(gasto || 0),
+        promociones: Number(promoGrupos || 0),
+        descuento: descuentoPromo,
         estado:
           Math.abs(diferenciaDinero) < 0.01
             ? "ok"
