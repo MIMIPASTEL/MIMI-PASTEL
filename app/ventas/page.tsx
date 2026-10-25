@@ -150,6 +150,7 @@ function Contenido() {
         .select("monto")
         .eq("fecha", fecha)
         .eq("punto_venta_id", puntoId)
+        .eq("turno", turno)
         .eq("tipo", "salida"),
       supabase
         .from("mermas")
@@ -186,11 +187,13 @@ function Contenido() {
       setTransferencia(porMedio["transferencia"] ? String(porMedio["transferencia"]) : "");
     }
 
-    const promoVendidas = ((vt.data ?? []) as any[]).reduce((a, x) => a + Number(x.promociones ?? 0), 0);
-    setPromoGrupos(promoVendidas ? String(promoVendidas) : "");
+    if (!cierre) {
+      const promoVendidas = ((vt.data ?? []) as any[]).reduce((a, x) => a + Number(x.promociones ?? 0), 0);
+      setPromoGrupos(promoVendidas ? String(promoVendidas) : "");
 
-    const totalGastos = ((mv.data ?? []) as any[]).reduce((a, x) => a + Number(x.monto), 0);
-    setGasto(totalGastos ? String(totalGastos) : "");
+      const totalGastos = ((mv.data ?? []) as any[]).reduce((a, x) => a + Number(x.monto), 0);
+      setGasto(totalGastos ? String(totalGastos) : "");
+    }
 
     const mermaMap: Record<string, number> = {};
     ((mr.data ?? []) as any[]).forEach((m) => {
@@ -360,6 +363,9 @@ function Contenido() {
       setGuardando(false);
       return;
     }
+
+    // se limpia el cierre anterior de este turno (si se vuelve a cerrar)
+    await supabase.from("ventas").delete().eq("fecha", fecha).eq("punto_venta_id", puntoId).eq("turno", turno);
 
     // 4. venta
     const vendidos = filas.filter((f) => vendido(f) > 0);
