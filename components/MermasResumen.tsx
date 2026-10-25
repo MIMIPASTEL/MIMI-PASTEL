@@ -127,7 +127,7 @@ export default function MermasResumen({
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((p) => {
+                {productos.map((p) => {
                   const a = de(p.id);
                   const b = sob[p.id] ?? 0;
                   const cu = costos[p.id] ?? 0;
@@ -162,12 +162,7 @@ export default function MermasResumen({
             </table>
           </div>
 
-          {visibles.length === 0 && (
-            <p className="sub" style={{ marginTop: 10 }}>
-              Aún no hay mermas. Escribe las unidades en la tabla cuando ocurran — o espera a que se
-              revisen los sobrantes de ayer.
-            </p>
-          )}
+
 
           <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={guardar} disabled={guardando}>
             {guardando ? "Guardando…" : "Guardar mermas"}
