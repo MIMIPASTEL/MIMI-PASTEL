@@ -5,9 +5,8 @@ import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import PedidoDetalle from "@/components/PedidoDetalle";
 import Despacho from "@/components/Despacho";
-import SobrantesRevision from "@/components/SobrantesRevision";
 import InsumosProduccion from "@/components/InsumosProduccion";
-import ParrillaPrograma from "@/components/ParrillaPrograma";
+import HojaProduccion from "@/components/HojaProduccion";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string };
@@ -274,9 +273,7 @@ function Contenido() {
         </div>
       )}
 
-      <ParrillaPrograma fecha={fecha} productos={productos} puntos={puntos} />
-
-      <SobrantesRevision fecha={fecha} productos={productos} puntos={puntos} />
+      <HojaProduccion fecha={fecha} productos={productos} puntos={puntos} />
 
       <Despacho fecha={fecha} productos={productos} puntos={puntos} />
 
@@ -345,47 +342,6 @@ function Contenido() {
             </div>
           </div>
           <button className="btn btn-primary">Registrar lote</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2>Registrar merma de producción</h2>
-        <form onSubmit={registrarMerma}>
-          <div className="grid grid-3">
-            <div className="field">
-              <label className="f">Producto</label>
-              <select className="input" value={mermaProd} onChange={(e) => setMermaProd(e.target.value)}>
-                <option value="">—</option>
-                {productos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label className="f">Cantidad</label>
-              <input
-                className="input num"
-                type="number"
-                min="0"
-                step="1"
-                value={mermaCant}
-                onChange={(e) => setMermaCant(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label className="f">Motivo</label>
-              <select className="input" value={mermaMotivo} onChange={(e) => setMermaMotivo(e.target.value)}>
-                <option value="roto">Roto</option>
-                <option value="quemado">Quemado</option>
-                <option value="vencido">Vencido</option>
-                <option value="contaminado">Contaminado</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-          </div>
-          <button className="btn btn-primary">Registrar merma</button>
         </form>
       </div>
 
