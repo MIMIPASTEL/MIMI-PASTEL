@@ -15,193 +15,249 @@ export default function Despacho({
   productos: Prod[];
   puntos: Punto[];
 }) {
-  const [puntoId, setPuntoId] = useState(puntos[0]?.id ?? "");
-  const [nuevo, setNuevo] = useState<Record<string, string>>({});
-  const [stock, setStock] = useState<Record<string, string>>({});
+  const [celdas, setCeldas] = useState<Record<string, string>>({});
+  const [merma, setMerma] = useState<Record<string, string>>({});
+  const [bloqueado, setBloqueado] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [cargando, setCargando] = useState(false);
 
-  useEffect(() => {
-    if (!puntoId && puntos.length > 0) setPuntoId(puntos[0].id);
-  }, [puntos, puntoId]);
+  const clave = (puntoId: string, prodId: string) => `${puntoId}|${prodId}`;
 
   const cargar = useCallback(async () => {
-    if (!puntoId) return;
     setCargando(true);
     setErr(null);
-    const turno = puntos.find((p) => p.id === puntoId)?.turno ?? 0;
 
-    const { data: desp } = await supabase
-      .from("despachos")
-      .select("id")
-      .eq("fecha", fecha)
-      .eq("punto_venta_id", puntoId)
-      .eq("turno", turno)
-      .maybeSingle();
+    const [req, des, mpr] = await Promise.all([
+      supabase
+        .from("requerimientos")
+        .select("id, requerimiento_items(producto_id, destino_punto_id, cantidad)")
+        .eq("fecha", fecha)
+        .maybeSingle(),
+      supabase.from("despachos").select("id, punto_venta_id, despacho_items(producto_id, cantidad_enviada)").eq("fecha", fecha),
+      supabase.from("mermas").select("producto_id, cantidad").eq("fecha", fecha).eq("tipo", "produccion"),
+    ]);
 
-    if (!desp) {
-      setNuevo({});
-      setStock({});
-      setCargando(false);
-      return;
+    const despachos = (des.data ?? []) as any[];
+    const c: Record<string, string> = {};
+
+    if (despachos.length > 0) {
+      despachos.forEach((d) => {
+        (d.despacho_items ?? []).forEach((i: any) => {
+          if (Number(i.cantidad_enviada) > 0) {
+            c[`${d.punto_venta_id}|${i.producto_id}`] = String(Number(i.cantidad_enviada));
+          }
+        });
+      });
+      setBloqueado(true);
+    } else {
+      ((req.data?.requerimiento_items ?? []) as any[]).forEach((i) => {
+        if (!i.destino_punto_id) return;
+        c[`${i.destino_punto_id}|${i.producto_id}`] = String(Number(i.cantidad));
+      });
+      setBloqueado(false);
     }
+    setCeldas(c);
 
-    const { data: its } = await supabase
-      .from("despacho_items")
-      .select("producto_id, cantidad_enviada, cantidad_stock")
-      .eq("despacho_id", desp.id);
-
-    const n: Record<string, string> = {};
-    const s: Record<string, string> = {};
-    (its ?? []).forEach((i: any) => {
-      const enviado = Number(i.cantidad_enviada);
-      const st = Number(i.cantidad_stock ?? 0);
-      if (st > 0) s[i.producto_id] = String(st);
-      const producido = enviado - st;
-      if (producido > 0) n[i.producto_id] = String(producido);
+    const m: Record<string, string> = {};
+    ((mpr.data ?? []) as any[]).forEach((x) => {
+      m[x.producto_id] = String(Number(x.cantidad));
     });
-    setNuevo(n);
-    setStock(s);
+    setMerma(m);
     setCargando(false);
-  }, [fecha, puntoId, puntos]);
+  }, [fecha]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
-  const totalNuevo = productos.reduce((a, p) => a + Number(nuevo[p.id] || 0), 0);
-  const totalStock = productos.reduce((a, p) => a + Number(stock[p.id] || 0), 0);
+  // solo se muestran los puntos que tienen algo que enviar
+  const filas = puntos.filter((p) =>
+    productos.some((pr) => Number(celdas[clave(p.id, pr.id)] || 0) > 0),
+  );
+
+  const totalFila = (puntoId: string) =>
+    productos.reduce((a, p) => a + Number(celdas[clave(puntoId, p.id)] || 0), 0);
+
+  const totalCol = (prodId: string) =>
+    filas.reduce((a, p) => a + Number(celdas[clave(p.id, prodId)] || 0), 0);
+
+  const totalMerma = productos.reduce((a, p) => a + Number(merma[p.id] || 0), 0);
+  const granTotal = productos.reduce((a, p) => a + totalCol(p.id), 0);
+
+  function setCelda(puntoId: string, prodId: string, v: string) {
+    setCeldas((c) => ({ ...c, [clave(puntoId, prodId)]: v }));
+  }
 
   async function guardar() {
     setErr(null);
     setMsg(null);
-    if (!puntoId) return setErr("Elige el punto de venta.");
     setGuardando(true);
 
-    const turno = puntos.find((p) => p.id === puntoId)?.turno ?? 0;
+    for (const pv of filas) {
+      const items = productos
+        .map((p) => ({ p, v: Number(celdas[clave(pv.id, p.id)] || 0) }))
+        .filter((x) => x.v > 0);
 
-    const { data: desp, error } = await supabase
-      .from("despachos")
-      .upsert(
-        { fecha, punto_venta_id: puntoId, turno, estado: "enviado", enviado_en: new Date().toISOString() },
-        { onConflict: "fecha,punto_venta_id,turno" },
-      )
-      .select("id")
-      .single();
+      if (items.length === 0) continue;
 
-    if (error || !desp) {
-      setErr(error?.message ?? "No se pudo crear el despacho");
-      setGuardando(false);
-      return;
+      const turno = pv.turno ?? 0;
+      const { data: desp, error } = await supabase
+        .from("despachos")
+        .upsert(
+          { fecha, punto_venta_id: pv.id, turno, estado: "enviado", enviado_en: new Date().toISOString() },
+          { onConflict: "fecha,punto_venta_id,turno" },
+        )
+        .select("id")
+        .single();
+
+      if (error || !desp) {
+        setErr(error?.message ?? "No se pudo guardar el envío de " + pv.codigo);
+        setGuardando(false);
+        return;
+      }
+
+      const { error: e2 } = await supabase.from("despacho_items").upsert(
+        items.map((x) => ({
+          despacho_id: desp.id,
+          producto_id: x.p.id,
+          cantidad_enviada: x.v,
+          cantidad_stock: 0,
+        })),
+        { onConflict: "despacho_id,producto_id" },
+      );
+      if (e2) {
+        setErr(e2.message);
+        setGuardando(false);
+        return;
+      }
     }
 
-    const filas = productos
-      .map((p) => {
-        const st = Number(stock[p.id] || 0);
-        const nu = Number(nuevo[p.id] || 0);
-        return { p, st, nu, total: st + nu };
-      })
-      .filter((x) => x.total > 0)
-      .map((x) => ({
-        despacho_id: desp.id,
-        producto_id: x.p.id,
-        cantidad_enviada: x.total,
-        cantidad_stock: x.st,
-      }));
-
-    const { error: e2 } = await supabase
-      .from("despacho_items")
-      .upsert(filas, { onConflict: "despacho_id,producto_id" });
+    // merma de producción del día
+    for (const p of productos) {
+      await supabase.from("mermas").delete().eq("fecha", fecha).eq("producto_id", p.id).eq("tipo", "produccion");
+      const q = Number(merma[p.id] || 0);
+      if (q > 0) {
+        await supabase.from("mermas").insert({
+          fecha,
+          producto_id: p.id,
+          cantidad: q,
+          tipo: "produccion",
+          motivo: "otro",
+          nota: "Merma registrada en el envío",
+        });
+      }
+    }
 
     setGuardando(false);
-    if (e2) return setErr(e2.message);
-    setMsg(`Envío registrado: ${numero(totalNuevo)} del día + ${numero(totalStock)} de stock anterior.`);
+    setBloqueado(true);
+    setMsg("Envío guardado. Para corregirlo usa el botón Editar.");
+    cargar();
+  }
+
+  if (cargando) {
+    return (
+      <div className="card">
+        <h2>Enviar a punto de venta</h2>
+        <p className="empty">Cargando…</p>
+      </div>
+    );
   }
 
   return (
     <div className="card">
-      <h2>Enviar a punto de venta</h2>
+      <div className="row" style={{ marginBottom: 10 }}>
+        <h2 style={{ margin: 0 }}>Enviar a punto de venta</h2>
+        {bloqueado ? (
+          <button className="btn btn-sm" onClick={() => setBloqueado(false)} type="button">
+            Editar
+          </button>
+        ) : (
+          <span className="badge warn">editando</span>
+        )}
+      </div>
       <p className="sub" style={{ marginTop: -6 }}>
-        Separa lo que es producción de hoy y lo que es sobrante del día anterior. El sobrante solo
-        se envía a MAXI 1, que abre la venta.
+        Cantidades reales que salen para cada cliente. Pueden diferir de la programación.
       </p>
 
       {err && <div className="alert err">{err}</div>}
       {msg && <div className="alert ok">{msg}</div>}
 
-      <div className="field">
-        <label className="f">Punto de venta</label>
-        <select className="input" value={puntoId} onChange={(e) => setPuntoId(e.target.value)}>
-          {puntos.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.codigo}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {cargando ? (
-        <p className="empty">Cargando…</p>
+      {filas.length === 0 ? (
+        <p className="empty">No hay programación para enviar en esta fecha.</p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="grid-prog">
             <thead>
               <tr>
-                <th>Producto</th>
-                <th className="num">Stock anterior</th>
-                <th className="num">Producción del día</th>
-                <th className="num">Total</th>
+                <th className="sticky" style={{ minWidth: 118 }}>Cliente</th>
+                {productos.map((p) => (
+                  <th key={p.id} className="prod" title={p.nombre}>
+                    {p.codigo ?? p.nombre}
+                  </th>
+                ))}
+                <th className="num">Tot</th>
               </tr>
             </thead>
             <tbody>
-              {productos.map((p) => {
-                const st = Number(stock[p.id] || 0);
-                const nu = Number(nuevo[p.id] || 0);
-                return (
-                  <tr key={p.id}>
-                    <td>{p.codigo ?? p.nombre}</td>
-                    <td className="num">
+              {filas.map((pv) => (
+                <tr key={pv.id}>
+                  <td className="sticky">{pv.codigo}</td>
+                  {productos.map((p) => (
+                    <td key={p.id} style={{ padding: 2 }}>
                       <input
-                        className="input num"
+                        className="num"
                         type="number"
                         min="0"
                         step="1"
-                        value={stock[p.id] ?? ""}
-                        onChange={(e) => setStock((c) => ({ ...c, [p.id]: e.target.value }))}
-                        style={{ width: 74, padding: "6px 8px" }}
+                        value={celdas[clave(pv.id, p.id)] ?? ""}
+                        onChange={(e) => setCelda(pv.id, p.id, e.target.value)}
+                        disabled={bloqueado}
                       />
                     </td>
-                    <td className="num">
-                      <input
-                        className="input num"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={nuevo[p.id] ?? ""}
-                        onChange={(e) => setNuevo((c) => ({ ...c, [p.id]: e.target.value }))}
-                        style={{ width: 74, padding: "6px 8px" }}
-                      />
-                    </td>
-                    <td className="num"><strong>{st + nu || ""}</strong></td>
-                  </tr>
-                );
-              })}
+                  ))}
+                  <td className="num"><strong>{totalFila(pv.id) || ""}</strong></td>
+                </tr>
+              ))}
+
+              <tr style={{ background: "#fff7f5" }}>
+                <td className="sticky" style={{ fontSize: 12.5 }}>Merma (rotos / quemados)</td>
+                {productos.map((p) => (
+                  <td key={p.id} style={{ padding: 2 }}>
+                    <input
+                      className="num"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={merma[p.id] ?? ""}
+                      onChange={(e) => setMerma((m) => ({ ...m, [p.id]: e.target.value }))}
+                      disabled={bloqueado}
+                    />
+                  </td>
+                ))}
+                <td className="num">
+                  {totalMerma > 0 ? <span className="badge danger">{numero(totalMerma)}</span> : ""}
+                </td>
+              </tr>
+
               <tr>
-                <td><strong>Total</strong></td>
-                <td className="num"><strong>{numero(totalStock)}</strong></td>
-                <td className="num"><strong>{numero(totalNuevo)}</strong></td>
-                <td className="num"><strong>{numero(totalStock + totalNuevo)}</strong></td>
+                <td className="sticky"><strong>Total enviado</strong></td>
+                {productos.map((p) => (
+                  <td key={p.id} className="num"><strong>{totalCol(p.id) || ""}</strong></td>
+                ))}
+                <td className="num"><strong>{numero(granTotal)}</strong></td>
               </tr>
             </tbody>
           </table>
         </div>
       )}
 
-      <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={guardar} disabled={guardando}>
-        {guardando ? "Guardando…" : "Registrar envío"}
-      </button>
+      {!bloqueado && filas.length > 0 && (
+        <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={guardar} disabled={guardando}>
+          {guardando ? "Guardando…" : "Guardar envío"}
+        </button>
+      )}
     </div>
   );
 }
