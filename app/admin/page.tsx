@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import RecetasAdmin from "@/components/RecetasAdmin";
+import RegistroProduccion from "@/components/RegistroProduccion";
+import InsumosProduccion from "@/components/InsumosProduccion";
+import { hoyISO } from "@/lib/supabase";
 import { supabase, soles } from "@/lib/supabase";
 
 type Prod = { id: string; nombre: string; codigo: string | null; unidad: string; activo: boolean };
@@ -398,6 +401,11 @@ function Contenido() {
       </div>
 
       <RecetasAdmin productos={productos} />
+
+      <RegistroProduccion productos={productos} />
+
+      <InsumosProduccion fecha={hoyISO()} />
+
 
       <div className="card">
         <h2>Promociones</h2>
