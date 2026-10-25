@@ -148,7 +148,7 @@ function Contenido() {
             : "",
         merma: "",
         sobrante: sobMap[p.id] !== undefined ? String(sobMap[p.id]) : "",
-        precio: precioMap[p.id] ? String(precioMap[p.id]) : "",
+        precio: precioMap[p.id] ? String(precioMap[p.id]) : "2",
       })),
     );
     setCargando(false);
@@ -415,9 +415,13 @@ function Contenido() {
       <div className="card" style={{ padding: 10 }}>
         <div className="row" style={{ marginBottom: 8, padding: "0 4px" }}>
           <h2 style={{ margin: 0 }}>Conteo del turno</h2>
-          <span className="sub" style={{ margin: 0, fontSize: 12 }}>
-            Inicial + enviado = disponible
-          </span>
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => setFilas((fs) => fs.map((f) => ({ ...f, contado: String(disponible(f)) })))}
+          >
+            Copiar disponible a todos
+          </button>
         </div>
 
         {cargando ? (
@@ -448,7 +452,14 @@ function Contenido() {
                         <td className="num" style={{ fontSize: 12.5 }}>{f.inicial || ""}</td>
                       )}
                       <td className="num" style={{ fontSize: 12.5 }}>{f.enviado || ""}</td>
-                      <td className="num">{disponible(f) || ""}</td>
+                      <td
+                        className="num"
+                        onClick={() => setCampo(i, "contado", String(disponible(f)))}
+                        title="Toca para copiar en Contado"
+                        style={{ cursor: "pointer", color: "var(--accent)", fontWeight: 600 }}
+                      >
+                        {disponible(f) || ""}
+                      </td>
                       <td style={{ padding: 2 }}>
                         <input
                           className="num"
@@ -497,47 +508,16 @@ function Contenido() {
             </table>
           </div>
         )}
+
+        <div style={{ marginTop: 10 }}>
+          <button className="btn" onClick={soloConteo} disabled={guardando}>
+            {guardando ? "Guardando…" : "Guardar conteo"}
+          </button>
+        </div>
       </div>
 
       <div className="card">
-        <h2>Precios y dinero</h2>
-
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th className="num">Vendido</th>
-                <th className="num">Precio</th>
-                <th className="num">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.filter((f) => vendido(f) > 0).map((f, i) => (
-                <tr key={f.producto_id}>
-                  <td>{f.codigo}</td>
-                  <td className="num">{vendido(f)}</td>
-                  <td className="num">
-                    <input
-                      className="input num"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={f.precio}
-                      onChange={(e) =>
-                        setFilas((fs) =>
-                          fs.map((x) => (x.producto_id === f.producto_id ? { ...x, precio: e.target.value } : x)),
-                        )
-                      }
-                      style={{ width: 80, padding: "6px 8px" }}
-                    />
-                  </td>
-                  <td className="num">{soles(vendido(f) * de(f, "precio"))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h2>Cierre de caja</h2>
 
         <div className="grid grid-3" style={{ marginTop: 12 }}>
           <div className="field">
@@ -595,14 +575,9 @@ function Contenido() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-          <button className="btn" onClick={soloConteo} disabled={guardando}>
-            Guardar conteo
-          </button>
-          <button className="btn btn-primary" onClick={guardar} disabled={guardando}>
-            {guardando ? "Guardando…" : "Cerrar turno"}
-          </button>
-        </div>
+        <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={guardar} disabled={guardando}>
+          {guardando ? "Guardando…" : "Cerrar turno"}
+        </button>
       </div>
     </>
   );
