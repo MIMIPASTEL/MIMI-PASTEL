@@ -209,10 +209,10 @@ function Contenido() {
   const PRECIO_BASE = 2;
   const descuentoPromo = useMemo(() => {
     const grupos = Number(promoGrupos || 0);
-    if (!promo || grupos === 0) return 0;
+    if (!promo || grupos === 0 || ventaBruta <= 0) return 0;
     const porGrupo = Number(promo.cantidad) * PRECIO_BASE - Number(promo.precio);
     return Math.max(0, grupos * Math.max(0, porGrupo));
-  }, [promo, promoGrupos]);
+  }, [promo, promoGrupos, ventaBruta]);
 
   const ventaNeta = ventaBruta - descuentoPromo;
   const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
@@ -619,6 +619,11 @@ function Contenido() {
             <div className="label">Venta neta</div>
             <div className="value" style={{ fontSize: 17 }}>{soles(ventaNeta)}</div>
           </div>
+          <div className="kpi">
+            <div className="label">Efectivo a entregar</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(Number(efectivo || 0) - Number(gasto || 0))}</div>
+            <div className="hint">efectivo − gasto {soles(Number(gasto || 0))}</div>
+          </div>
           <div className="kpi accent">
             <div className="label">Diferencia</div>
             <div
@@ -627,8 +632,24 @@ function Contenido() {
             >
               {soles(diferenciaDinero)}
             </div>
-            <div className="hint">cobrado {soles(cobrado)}</div>
+            <div className="hint">cobrado {soles(cobrado)} − venta neta</div>
           </div>
+        </div>
+
+        <div className="card" style={{ background: "#faf7f4", marginTop: 14, marginBottom: 0, boxShadow: "none" }}>
+          <h2 style={{ marginBottom: 6, fontSize: 13 }}>Cómo cuadra la caja</h2>
+          <p className="sub" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
+            <strong>Vendido</strong> = contado − merma − sobrante.<br />
+            <strong>Venta bruta</strong> = vendido × precio. &nbsp;
+            <strong>Venta neta</strong> = bruta − promociones.<br />
+            <strong>Cobrado</strong> = efectivo + Yape + transferencia.<br />
+            <strong>Diferencia</strong> = cobrado − venta neta. Debe ser S/ 0.00.<br />
+            <strong>Efectivo a entregar</strong> = efectivo cobrado − gastos pagados de ese efectivo.
+          </p>
+          <p className="sub" style={{ margin: "8px 0 0", fontSize: 12 }}>
+            Si registras merma, baja el vendido y por lo tanto baja lo que deberías tener en caja: la
+            diferencia sube. Eso es correcto — significa que ese pastel no se vendió.
+          </p>
         </div>
 
         <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={guardar} disabled={guardando}>
