@@ -7,7 +7,7 @@ import PedidoDetalle from "@/components/PedidoDetalle";
 import Despacho from "@/components/Despacho";
 import SobrantesRevision from "@/components/SobrantesRevision";
 import InsumosProduccion from "@/components/InsumosProduccion";
-import ProduccionDelDia from "@/components/ProduccionDelDia";
+import ParrillaPrograma from "@/components/ParrillaPrograma";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string };
@@ -274,7 +274,7 @@ function Contenido() {
         </div>
       )}
 
-      <ProduccionDelDia fecha={fecha} productos={productos} />
+      <ParrillaPrograma fecha={fecha} productos={productos} puntos={puntos} />
 
       <SobrantesRevision fecha={fecha} productos={productos} puntos={puntos} />
 
