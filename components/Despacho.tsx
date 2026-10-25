@@ -16,7 +16,8 @@ export default function Despacho({
   puntos: Punto[];
 }) {
   const [puntoId, setPuntoId] = useState(puntos[0]?.id ?? "");
-  const [cant, setCant] = useState<Record<string, string>>({});
+  const [nuevo, setNuevo] = useState<Record<string, string>>({});
+  const [stock, setStock] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -30,8 +31,7 @@ export default function Despacho({
     if (!puntoId) return;
     setCargando(true);
     setErr(null);
-    const punto = puntos.find((p) => p.id === puntoId);
-    const turno = punto?.turno ?? 0;
+    const turno = puntos.find((p) => p.id === puntoId)?.turno ?? 0;
 
     const { data: desp } = await supabase
       .from("despachos")
@@ -42,20 +42,28 @@ export default function Despacho({
       .maybeSingle();
 
     if (!desp) {
-      setCant({});
+      setNuevo({});
+      setStock({});
       setCargando(false);
       return;
     }
+
     const { data: its } = await supabase
       .from("despacho_items")
-      .select("producto_id, cantidad_enviada")
+      .select("producto_id, cantidad_enviada, cantidad_stock")
       .eq("despacho_id", desp.id);
 
-    const m: Record<string, string> = {};
+    const n: Record<string, string> = {};
+    const s: Record<string, string> = {};
     (its ?? []).forEach((i: any) => {
-      if (Number(i.cantidad_enviada) > 0) m[i.producto_id] = String(Number(i.cantidad_enviada));
+      const enviado = Number(i.cantidad_enviada);
+      const st = Number(i.cantidad_stock ?? 0);
+      if (st > 0) s[i.producto_id] = String(st);
+      const producido = enviado - st;
+      if (producido > 0) n[i.producto_id] = String(producido);
     });
-    setCant(m);
+    setNuevo(n);
+    setStock(s);
     setCargando(false);
   }, [fecha, puntoId, puntos]);
 
@@ -63,7 +71,8 @@ export default function Despacho({
     cargar();
   }, [cargar]);
 
-  const total = productos.reduce((a, p) => a + Number(cant[p.id] || 0), 0);
+  const totalNuevo = productos.reduce((a, p) => a + Number(nuevo[p.id] || 0), 0);
+  const totalStock = productos.reduce((a, p) => a + Number(stock[p.id] || 0), 0);
 
   async function guardar() {
     setErr(null);
@@ -71,8 +80,7 @@ export default function Despacho({
     if (!puntoId) return setErr("Elige el punto de venta.");
     setGuardando(true);
 
-    const punto = puntos.find((p) => p.id === puntoId);
-    const turno = punto?.turno ?? 0;
+    const turno = puntos.find((p) => p.id === puntoId)?.turno ?? 0;
 
     const { data: desp, error } = await supabase
       .from("despachos")
@@ -90,11 +98,17 @@ export default function Despacho({
     }
 
     const filas = productos
-      .filter((p) => Number(cant[p.id] || 0) > 0)
-      .map((p) => ({
+      .map((p) => {
+        const st = Number(stock[p.id] || 0);
+        const nu = Number(nuevo[p.id] || 0);
+        return { p, st, nu, total: st + nu };
+      })
+      .filter((x) => x.total > 0)
+      .map((x) => ({
         despacho_id: desp.id,
-        producto_id: p.id,
-        cantidad_enviada: Number(cant[p.id]),
+        producto_id: x.p.id,
+        cantidad_enviada: x.total,
+        cantidad_stock: x.st,
       }));
 
     const { error: e2 } = await supabase
@@ -103,14 +117,15 @@ export default function Despacho({
 
     setGuardando(false);
     if (e2) return setErr(e2.message);
-    setMsg(`Envío registrado: ${numero(total)} unidades para ${punto?.codigo}.`);
+    setMsg(`Envío registrado: ${numero(totalNuevo)} del día + ${numero(totalStock)} de stock anterior.`);
   }
 
   return (
     <div className="card">
       <h2>Enviar a punto de venta</h2>
       <p className="sub" style={{ marginTop: -6 }}>
-        Lo que producción entrega al turno. La vendedora después cuenta lo que recibió.
+        Separa lo que es producción de hoy y lo que es sobrante del día anterior. El sobrante solo
+        se envía a MAXI 1, que abre la venta.
       </p>
 
       {err && <div className="alert err">{err}</div>}
@@ -135,29 +150,49 @@ export default function Despacho({
             <thead>
               <tr>
                 <th>Producto</th>
-                <th className="num">Enviado</th>
+                <th className="num">Stock anterior</th>
+                <th className="num">Producción del día</th>
+                <th className="num">Total</th>
               </tr>
             </thead>
             <tbody>
-              {productos.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.codigo ?? p.nombre}</td>
-                  <td className="num">
-                    <input
-                      className="input num"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={cant[p.id] ?? ""}
-                      onChange={(e) => setCant((c) => ({ ...c, [p.id]: e.target.value }))}
-                      style={{ width: 80, padding: "6px 8px" }}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {productos.map((p) => {
+                const st = Number(stock[p.id] || 0);
+                const nu = Number(nuevo[p.id] || 0);
+                return (
+                  <tr key={p.id}>
+                    <td>{p.codigo ?? p.nombre}</td>
+                    <td className="num">
+                      <input
+                        className="input num"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={stock[p.id] ?? ""}
+                        onChange={(e) => setStock((c) => ({ ...c, [p.id]: e.target.value }))}
+                        style={{ width: 74, padding: "6px 8px" }}
+                      />
+                    </td>
+                    <td className="num">
+                      <input
+                        className="input num"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={nuevo[p.id] ?? ""}
+                        onChange={(e) => setNuevo((c) => ({ ...c, [p.id]: e.target.value }))}
+                        style={{ width: 74, padding: "6px 8px" }}
+                      />
+                    </td>
+                    <td className="num"><strong>{st + nu || ""}</strong></td>
+                  </tr>
+                );
+              })}
               <tr>
                 <td><strong>Total</strong></td>
-                <td className="num"><strong>{numero(total)}</strong></td>
+                <td className="num"><strong>{numero(totalStock)}</strong></td>
+                <td className="num"><strong>{numero(totalNuevo)}</strong></td>
+                <td className="num"><strong>{numero(totalStock + totalNuevo)}</strong></td>
               </tr>
             </tbody>
           </table>
