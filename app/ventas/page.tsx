@@ -136,6 +136,37 @@ function Contenido() {
       sobMap[s.producto_id] = Number(s.cantidad);
     });
 
+    // cierre de caja ya guardado de este turno
+    const [pg, vt, mv] = await Promise.all([
+      supabase.from("pagos").select("medio, monto").eq("fecha", fecha).eq("punto_venta_id", puntoId),
+      supabase
+        .from("ventas")
+        .select("promociones, descuento")
+        .eq("fecha", fecha)
+        .eq("punto_venta_id", puntoId)
+        .eq("turno", turno),
+      supabase
+        .from("movimientos_caja")
+        .select("monto")
+        .eq("fecha", fecha)
+        .eq("punto_venta_id", puntoId)
+        .eq("tipo", "salida"),
+    ]);
+
+    const porMedio: Record<string, number> = {};
+    ((pg.data ?? []) as any[]).forEach((x) => {
+      porMedio[x.medio] = (porMedio[x.medio] ?? 0) + Number(x.monto);
+    });
+    setEfectivo(porMedio["efectivo"] ? String(porMedio["efectivo"]) : "");
+    setYape(porMedio["yape"] ? String(porMedio["yape"]) : "");
+    setTransferencia(porMedio["transferencia"] ? String(porMedio["transferencia"]) : "");
+
+    const promoVendidas = ((vt.data ?? []) as any[]).reduce((a, x) => a + Number(x.promociones ?? 0), 0);
+    setPromoGrupos(promoVendidas ? String(promoVendidas) : "");
+
+    const totalGastos = ((mv.data ?? []) as any[]).reduce((a, x) => a + Number(x.monto), 0);
+    setGasto(totalGastos ? String(totalGastos) : "");
+
     setFilas(
       productos.map((p) => ({
         producto_id: p.id,
@@ -173,13 +204,15 @@ function Contenido() {
   const totalVendido = filas.reduce((a, f) => a + vendido(f), 0);
   const ventaBruta = filas.reduce((a, f) => a + vendido(f) * de(f, "precio"), 0);
 
+  // Cada grupo promocional cuesta lo mismo que su descuento:
+  // 3 por S/ 5 con pastel a S/ 2 = S/ 1 de descuento por grupo.
+  const PRECIO_BASE = 2;
   const descuentoPromo = useMemo(() => {
     const grupos = Number(promoGrupos || 0);
-    if (!promo || grupos === 0 || totalVendido === 0) return 0;
-    const promedio = ventaBruta / totalVendido;
-    const porGrupo = Number(promo.cantidad) * promedio - Number(promo.precio);
+    if (!promo || grupos === 0) return 0;
+    const porGrupo = Number(promo.cantidad) * PRECIO_BASE - Number(promo.precio);
     return Math.max(0, grupos * Math.max(0, porGrupo));
-  }, [promo, promoGrupos, ventaBruta, totalVendido]);
+  }, [promo, promoGrupos]);
 
   const ventaNeta = ventaBruta - descuentoPromo;
   const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
@@ -370,6 +403,28 @@ function Contenido() {
       });
     }
 
+    // guardar el cierre de caja del turno
+    await supabase.from("cuadres").upsert(
+      {
+        fecha,
+        punto_venta_id: puntoId,
+        turno,
+        unidades_esperadas: filas.reduce((a, f) => a + disponible(f), 0),
+        unidades_contadas: filas.reduce((a, f) => a + (f.contado === "" ? 0 : Number(f.contado)), 0),
+        dinero_esperado: ventaNeta,
+        dinero_contado: cobrado,
+        estado:
+          Math.abs(diferenciaDinero) < 0.01
+            ? "ok"
+            : Math.abs(diferenciaDinero) <= 5
+              ? "diferencia_leve"
+              : "diferencia_grave",
+        cerrado_por: perfil?.id,
+        cerrado_en: new Date().toISOString(),
+      },
+      { onConflict: "fecha,punto_venta_id,turno" },
+    );
+
     setGuardando(false);
     setMsg(
       `Turno cerrado · vendido ${numero(totalVendido)} unid. · venta neta ${soles(ventaNeta)} · ${
@@ -558,10 +613,11 @@ function Contenido() {
           <div className="kpi">
             <div className="label">Promociones</div>
             <div className="value" style={{ fontSize: 17 }}>−{soles(descuentoPromo)}</div>
+            <div className="hint">{promoGrupos || 0} grupo(s)</div>
           </div>
           <div className="kpi">
-            <div className="label">Cobrado</div>
-            <div className="value" style={{ fontSize: 17 }}>{soles(cobrado)}</div>
+            <div className="label">Venta neta</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(ventaNeta)}</div>
           </div>
           <div className="kpi accent">
             <div className="label">Diferencia</div>
@@ -571,7 +627,7 @@ function Contenido() {
             >
               {soles(diferenciaDinero)}
             </div>
-            <div className="hint">cobrado − venta neta {soles(ventaNeta)}</div>
+            <div className="hint">cobrado {soles(cobrado)}</div>
           </div>
         </div>
 
