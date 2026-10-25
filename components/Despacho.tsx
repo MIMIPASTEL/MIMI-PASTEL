@@ -16,7 +16,6 @@ export default function Despacho({
   puntos: Punto[];
 }) {
   const [celdas, setCeldas] = useState<Record<string, string>>({});
-  const [merma, setMerma] = useState<Record<string, string>>({});
   const [bloqueado, setBloqueado] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -29,14 +28,13 @@ export default function Despacho({
     setCargando(true);
     setErr(null);
 
-    const [req, des, mpr] = await Promise.all([
+    const [req, des] = await Promise.all([
       supabase
         .from("requerimientos")
         .select("id, requerimiento_items(producto_id, destino_punto_id, cantidad)")
         .eq("fecha", fecha)
         .maybeSingle(),
       supabase.from("despachos").select("id, punto_venta_id, despacho_items(producto_id, cantidad_enviada)").eq("fecha", fecha),
-      supabase.from("mermas").select("producto_id, cantidad").eq("fecha", fecha).eq("tipo", "produccion"),
     ]);
 
     const despachos = (des.data ?? []) as any[];
@@ -60,11 +58,6 @@ export default function Despacho({
     }
     setCeldas(c);
 
-    const m: Record<string, string> = {};
-    ((mpr.data ?? []) as any[]).forEach((x) => {
-      m[x.producto_id] = String(Number(x.cantidad));
-    });
-    setMerma(m);
     setCargando(false);
   }, [fecha]);
 
@@ -83,7 +76,6 @@ export default function Despacho({
   const totalCol = (prodId: string) =>
     filas.reduce((a, p) => a + Number(celdas[clave(p.id, prodId)] || 0), 0);
 
-  const totalMerma = productos.reduce((a, p) => a + Number(merma[p.id] || 0), 0);
   const granTotal = productos.reduce((a, p) => a + totalCol(p.id), 0);
 
   function setCelda(puntoId: string, prodId: string, v: string) {
@@ -131,22 +123,6 @@ export default function Despacho({
         setErr(e2.message);
         setGuardando(false);
         return;
-      }
-    }
-
-    // merma de producción del día
-    for (const p of productos) {
-      await supabase.from("mermas").delete().eq("fecha", fecha).eq("producto_id", p.id).eq("tipo", "produccion");
-      const q = Number(merma[p.id] || 0);
-      if (q > 0) {
-        await supabase.from("mermas").insert({
-          fecha,
-          producto_id: p.id,
-          cantidad: q,
-          tipo: "produccion",
-          motivo: "otro",
-          nota: "Merma registrada en el envío",
-        });
       }
     }
 
@@ -221,27 +197,7 @@ export default function Despacho({
                 </tr>
               ))}
 
-              <tr style={{ background: "#fff7f5" }}>
-                <td className="sticky" style={{ fontSize: 12.5 }}>Merma (rotos / quemados)</td>
-                {productos.map((p) => (
-                  <td key={p.id} style={{ padding: 2 }}>
-                    <input
-                      className="num"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={merma[p.id] ?? ""}
-                      onChange={(e) => setMerma((m) => ({ ...m, [p.id]: e.target.value }))}
-                      disabled={bloqueado}
-                    />
-                  </td>
-                ))}
-                <td className="num">
-                  {totalMerma > 0 ? <span className="badge danger">{numero(totalMerma)}</span> : ""}
-                </td>
-              </tr>
-
-              <tr>
+                            <tr>
                 <td className="sticky"><strong>Total enviado</strong></td>
                 {productos.map((p) => (
                   <td key={p.id} className="num"><strong>{totalCol(p.id) || ""}</strong></td>
