@@ -18,6 +18,8 @@ type Pedido = {
   hora_entrega: string | null;
   estado: string;
   adelanto: number;
+  telefono?: string | null;
+  lugar?: string | null;
   pedido_items: {
     producto_id: string;
     cantidad: number;
@@ -170,6 +172,39 @@ function Contenido() {
     borrarBorrador("mip:pedido:nuevo");
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
+  }
+
+  function enviarWhatsapp(p: Pedido) {
+    const items = (p.pedido_items ?? []) as any[];
+    const total = items.reduce((a, it) => a + Number(it.cantidad) * Number(it.precio_unitario ?? 0), 0);
+    const adelanto = Number(p.adelanto ?? 0);
+    const saldo = Math.max(0, total - adelanto);
+
+    const lineas = items
+      .map((it) => {
+        const nombre = it.productos?.nombre ?? nombres[it.producto_id] ?? "Producto";
+        const detalle = [it.tamano ? `Tamaño: ${it.tamano}` : "", it.empaque ? `Empaque: ${it.empaque}` : "", it.nota ?? ""]
+          .filter(Boolean)
+          .join(" · ");
+        return `• ${nombre} x${Number(it.cantidad)} — S/ ${(Number(it.cantidad) * Number(it.precio_unitario ?? 0)).toFixed(2)}` +
+          (detalle ? `\n   ${detalle}` : "");
+      })
+      .join("\n");
+
+    const texto =
+      `*Mimi Pastel* 🧁\n\n` +
+      `Cliente: ${p.cliente}\n` +
+      `Entrega: ${p.fecha_entrega}${p.hora_entrega ? " " + String(p.hora_entrega).slice(0, 5) : ""}\n` +
+      (p.lugar ? `Lugar: ${p.lugar}\n` : "") +
+      `\nPedido:\n${lineas}\n\n` +
+      `Total: S/ ${total.toFixed(2)}\n` +
+      `Adelanto: S/ ${adelanto.toFixed(2)}\n` +
+      `*Saldo pendiente: S/ ${saldo.toFixed(2)}*`;
+
+    const tel = (p.telefono ?? "").replace(/\D/g, "");
+    const destino = tel.length === 9 ? `51${tel}` : tel;
+    const url = `https://wa.me/${destino}?text=${encodeURIComponent(texto)}`;
+    window.open(url, "_blank");
   }
 
   async function eliminarPedido(p: Pedido) {
@@ -364,6 +399,9 @@ function Contenido() {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button className="btn btn-sm" onClick={() => setEditando(p)}>
                     Editar pedido
+                  </button>
+                  <button className="btn btn-sm" onClick={() => enviarWhatsapp(p)}>
+                    WhatsApp
                   </button>
                   {p.estado !== "entregado" && p.estado !== "cancelado" && (
                     <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>

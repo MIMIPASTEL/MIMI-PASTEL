@@ -45,6 +45,7 @@ function Contenido() {
   const [insumos, setInsumos] = useState<any[]>([]);
   const [insumoNombre, setInsumoNombre] = useState("");
   const [insumoUnidad, setInsumoUnidad] = useState("kg");
+  const [nuevoCliente, setNuevoCliente] = useState("");
 
   const cargar = useCallback(async () => {
     const [p, pv, pr, pf, pm, ins] = await Promise.all([
@@ -107,6 +108,27 @@ function Contenido() {
     if (error) return setErr(error.message);
     setPrecioValor("");
     setMsg("Precio registrado.");
+    cargar();
+  }
+
+  async function crearClienteReparto(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setMsg(null);
+    const nombre = nuevoCliente.trim();
+    if (!nombre) return setErr("Escribe el nombre del cliente.");
+    const codigo = nombre.toUpperCase().replace(/[^A-Z0-9]+/g, "-").slice(0, 20);
+    const maxOrden = puntos.reduce((a: number, p: any) => Math.max(a, Number(p.orden ?? 100)), 0);
+    const { error } = await supabase.from("puntos_venta").insert({
+      codigo,
+      nombre,
+      tipo: "repartos",
+      es_fijo: true,
+      orden: maxOrden + 1,
+    });
+    if (error) return setErr(error.message);
+    setNuevoCliente("");
+    setMsg(`Cliente ${codigo} agregado al reparto.`);
     cargar();
   }
 
@@ -310,6 +332,17 @@ function Contenido() {
           Los fijos aparecen siempre en la parrilla de programación (lunes a viernes).
           Los eventuales solo cuando activas «mostrar eventuales».
         </p>
+        <form onSubmit={crearClienteReparto} style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 180 }}
+            placeholder="Nuevo cliente de reparto"
+            value={nuevoCliente}
+            onChange={(e) => setNuevoCliente(e.target.value)}
+          />
+          <button className="btn btn-sm">Agregar cliente</button>
+        </form>
+
         <div className="table-wrap">
           <table>
             <thead>
