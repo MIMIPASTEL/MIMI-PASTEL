@@ -3,20 +3,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
-import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
 
-type Punto = { id: string; codigo: string; nombre: string; turno: number | null };
-type Prod = { id: string; nombre: string };
+type Punto = { id: string; codigo: string; turno: number | null; punto_anterior_id: string | null };
+type Prod = { id: string; codigo?: string | null; nombre: string };
+
 type Fila = {
   producto_id: string;
-  nombre: string;
+  codigo: string;
+  inicial: number;
   enviado: number;
-  recibido: string;
-  vendido: string;
-  precio: string;
-  sobrante: string;
+  contado: string;
   merma: string;
+  sobrante: string;
+  precio: string;
 };
+
+function restarDia(iso: string) {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() - 1);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 export default function VentasPage() {
   return (
@@ -35,264 +42,204 @@ function Contenido() {
   const [efectivo, setEfectivo] = useState("");
   const [yape, setYape] = useState("");
   const [transferencia, setTransferencia] = useState("");
-  const [descuento, setDescuento] = useState("");
-  const [gastoMonto, setGastoMonto] = useState("");
-  const [gastoConcepto, setGastoConcepto] = useState("");
-  const [gastoCategoria, setGastoCategoria] = useState("movilidad");
-  const [promos, setPromos] = useState<any[]>([]);
-  const [mostrarEnviado, setMostrarEnviado] = useState(false);
+  const [gasto, setGasto] = useState("");
+  const [promoGrupos, setPromoGrupos] = useState("");
+  const [promo, setPromo] = useState<any>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [draftListo, setDraftListo] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("promociones")
-        .select("id, nombre, cantidad, precio, promocion_productos(producto_id)")
-        .eq("activo", true);
-      setPromos(data ?? []);
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("puntos_venta")
-        .select("id, codigo, nombre, turno")
-        .eq("activo", true)
-        .order("orden", { ascending: true })
-        .order("codigo");
-      setPuntos((data ?? []) as Punto[]);
-      if (data && data.length > 0) setPuntoId(data[0].id);
+      const [pv, pr] = await Promise.all([
+        supabase
+          .from("puntos_venta")
+          .select("id, codigo, turno, punto_anterior_id")
+          .eq("activo", true)
+          .eq("tipo", "maxiahorro")
+          .order("orden"),
+        supabase
+          .from("promociones")
+          .select("id, nombre, cantidad, precio")
+          .eq("activo", true)
+          .limit(1),
+      ]);
+      const lista = (pv.data ?? []) as Punto[];
+      setPuntos(lista);
+      if (lista.length > 0) setPuntoId(lista[0].id);
+      if ((pr.data ?? []).length > 0) setPromo(pr.data![0]);
     })();
   }, []);
 
   const cargar = useCallback(async () => {
     if (!puntoId) return;
+    setCargando(true);
     setMsg(null);
     setErr(null);
 
-    const { data: prods } = await supabase
-      .from("productos")
-      .select("id, nombre")
-      .eq("activo", true)
-      .order("orden", { ascending: true });
-    const productos = (prods ?? []) as Prod[];
+    const punto = puntos.find((p) => p.id === puntoId);
+    const turno = punto?.turno ?? 0;
 
-    const { data: desp } = await supabase
-      .from("despachos")
-      .select("id")
-      .eq("fecha", fecha)
-      .eq("punto_venta_id", puntoId)
-      .maybeSingle();
+    const [prods, desp, precios] = await Promise.all([
+      supabase.from("productos").select("id, codigo, nombre").eq("activo", true).order("orden"),
+      supabase
+        .from("despachos")
+        .select("id, despacho_items(producto_id, cantidad_enviada, cantidad_recibida)")
+        .eq("fecha", fecha)
+        .eq("punto_venta_id", puntoId)
+        .eq("turno", turno)
+        .maybeSingle(),
+      supabase.from("precios").select("producto_id, precio, punto_venta_id"),
+    ]);
 
-    let enviados: Record<string, number> = {};
-    let recibidos: Record<string, number> = {};
-    if (desp) {
-      const { data: its } = await supabase
-        .from("despacho_items")
-        .select("producto_id, cantidad_enviada, cantidad_recibida")
-        .eq("despacho_id", desp.id);
-      (its ?? []).forEach((i: any) => {
-        enviados[i.producto_id] = Number(i.cantidad_enviada);
-        if (i.cantidad_recibida !== null) recibidos[i.producto_id] = Number(i.cantidad_recibida);
+    const productos = (prods.data ?? []) as Prod[];
+
+    // enviado por producto
+    const enviado: Record<string, number> = {};
+    ((desp.data?.despacho_items ?? []) as any[]).forEach((i) => {
+      enviado[i.producto_id] = Number(i.cantidad_enviada);
+    });
+
+    // inventario inicial: el sobrante del turno anterior
+    let prevPunto: string | null = null;
+    let prevFecha = fecha;
+    if (punto?.punto_anterior_id) {
+      prevPunto = punto.punto_anterior_id;
+      prevFecha = fecha;
+    } else {
+      const sig = puntos.find((p) => p.punto_anterior_id === puntoId);
+      prevPunto = sig?.id ?? null;
+      prevFecha = restarDia(fecha);
+    }
+
+    const inicial: Record<string, number> = {};
+    if (prevPunto) {
+      const { data: sob } = await supabase
+        .from("sobrantes")
+        .select("producto_id, cantidad, cantidad_reutilizable")
+        .eq("fecha", prevFecha)
+        .eq("punto_venta_id", prevPunto);
+      (sob ?? []).forEach((s: any) => {
+        inicial[s.producto_id] =
+          s.cantidad_reutilizable === null ? Number(s.cantidad) : Number(s.cantidad_reutilizable);
       });
     }
 
-    const { data: sob } = await supabase
+    const precioMap: Record<string, number> = {};
+    (precios.data ?? []).forEach((p: any) => {
+      if (!p.punto_venta_id) precioMap[p.producto_id] = precioMap[p.producto_id] ?? Number(p.precio);
+      else if (p.punto_venta_id === puntoId) precioMap[p.producto_id] = Number(p.precio);
+    });
+
+    // sobrantes ya guardados de este turno
+    const { data: sobHoy } = await supabase
       .from("sobrantes")
       .select("producto_id, cantidad")
       .eq("fecha", fecha)
       .eq("punto_venta_id", puntoId);
-
-    const { data: precios } = await supabase
-      .from("precios")
-      .select("producto_id, precio, punto_venta_id")
-      .or(`punto_venta_id.eq.${puntoId},punto_venta_id.is.null`);
-
-    const precioMap: Record<string, number> = {};
-    (precios ?? []).forEach((p: any) => {
-      if (!p.punto_venta_id) precioMap[p.producto_id] = precioMap[p.producto_id] ?? Number(p.precio);
-      else precioMap[p.producto_id] = Number(p.precio);
+    const sobMap: Record<string, number> = {};
+    (sobHoy ?? []).forEach((s: any) => {
+      sobMap[s.producto_id] = Number(s.cantidad);
     });
 
-    const { data: ventas } = await supabase
-      .from("ventas")
-      .select("id")
-      .eq("fecha", fecha)
-      .eq("punto_venta_id", puntoId);
-
-    const vendidos: Record<string, number> = {};
-    if (ventas && ventas.length > 0) {
-      const ids = ventas.map((v: any) => v.id);
-      const { data: vi } = await supabase
-        .from("venta_items")
-        .select("producto_id, cantidad")
-        .in("venta_id", ids);
-      (vi ?? []).forEach((i: any) => {
-        vendidos[i.producto_id] = (vendidos[i.producto_id] ?? 0) + Number(i.cantidad);
-      });
-    }
-
-    const base = productos.length > 0 ? productos : [];
-    const filasBase = base.map((p) => ({
+    setFilas(
+      productos.map((p) => ({
         producto_id: p.id,
-        nombre: p.nombre,
-        enviado: enviados[p.id] ?? 0,
-        recibido: recibidos[p.id] !== undefined ? String(recibidos[p.id]) : "",
-        vendido: vendidos[p.id] ? String(vendidos[p.id]) : "",
-        precio: precioMap[p.id] ? String(precioMap[p.id]) : "",
-        sobrante: sob?.find((s: any) => s.producto_id === p.id)
-          ? String((sob as any[]).find((s: any) => s.producto_id === p.id).cantidad)
-          : "",
+        codigo: p.codigo ?? p.nombre,
+        inicial: inicial[p.id] ?? 0,
+        enviado: enviado[p.id] ?? 0,
+        contado:
+          enviado[p.id] !== undefined && desp.data
+            ? String((desp.data as any).despacho_items.find((x: any) => x.producto_id === p.id)?.cantidad_recibida ?? "")
+            : "",
         merma: "",
-      }));
-
-    const d = leerBorrador<any>(`mip:ventas:${fecha}:${puntoId}`);
-    if (d && Array.isArray(d.filas) && d.filas.length > 0) {
-      setFilas(d.filas);
-      if (typeof d.efectivo === "string") setEfectivo(d.efectivo);
-      if (typeof d.yape === "string") setYape(d.yape);
-      if (typeof d.transferencia === "string") setTransferencia(d.transferencia);
-      if (typeof d.descuento === "string") setDescuento(d.descuento);
-      if (typeof d.gastoMonto === "string") setGastoMonto(d.gastoMonto);
-      if (typeof d.gastoConcepto === "string") setGastoConcepto(d.gastoConcepto);
-      if (typeof d.gastoCategoria === "string") setGastoCategoria(d.gastoCategoria);
-    } else {
-      setFilas(filasBase);
-    }
-    setMostrarEnviado(Boolean(desp));
-    setDraftListo(true);
-  }, [fecha, puntoId]);
+        sobrante: sobMap[p.id] !== undefined ? String(sobMap[p.id]) : "",
+        precio: precioMap[p.id] ? String(precioMap[p.id]) : "",
+      })),
+    );
+    setCargando(false);
+  }, [fecha, puntoId, puntos]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
-  useEffect(() => {
-    if (!draftListo) return;
-    const t = setTimeout(
-      () => guardarBorrador(`mip:ventas:${fecha}:${puntoId}`, { filas, efectivo, yape, transferencia, descuento, gastoMonto, gastoConcepto, gastoCategoria }),
-      700,
-    );
-    return () => clearTimeout(t);
-  }, [draftListo, filas, efectivo, yape, transferencia, descuento, gastoMonto, gastoConcepto, gastoCategoria, fecha, puntoId]);
-
-  function setCampo(idx: number, campo: keyof Fila, valor: string) {
-    setFilas((f) => f.map((x, i) => (i === idx ? { ...x, [campo]: valor } : x)));
+  function setCampo(i: number, campo: keyof Fila, v: string) {
+    setFilas((f) => f.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
   }
 
-  const totalVendido = useMemo(
-    () =>
-      filas.reduce((a, f) => {
-        const c = Number(f.vendido || 0);
-        const p = Number(f.precio || 0);
-        return a + c * p;
-      }, 0),
-    [filas],
-  );
+  const de = (f: Fila, campo: "contado" | "merma" | "sobrante" | "precio") =>
+    Number((f[campo] as string) || 0);
 
-  const totalCobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
-  const montoDescuento = Number(descuento || 0);
-  const ventaNeta = totalVendido - montoDescuento;
-  const gastoEfectivo = Number(gastoMonto || 0);
-  const efectivoAEntregar = Number(efectivo || 0) - gastoEfectivo;
-  const diferenciaDinero = totalCobrado - ventaNeta;
+  const disponible = (f: Fila) => f.inicial + f.enviado;
+  const diferencia = (f: Fila) => (f.contado === "" ? 0 : de(f, "contado") - disponible(f));
+  const vendido = (f: Fila) =>
+    Math.max(0, de(f, "contado") - de(f, "merma") - de(f, "sobrante"));
 
-  const sugerencias = useMemo(() => {
-    const out: { id: string; nombre: string; unidades: number; grupos: number; dto: number }[] = [];
-    (promos as any[]).forEach((pr) => {
-      const ids = new Set((pr.promocion_productos ?? []).map((x: any) => x.producto_id));
-      if (ids.size === 0) return;
-      let unidades = 0;
-      let valor = 0;
-      filas.forEach((f) => {
-        if (!ids.has(f.producto_id)) return;
-        const c = Number(f.vendido || 0);
-        unidades += c;
-        valor += c * Number(f.precio || 0);
-      });
-      const cant = Number(pr.cantidad);
-      const grupos = Math.floor(unidades / cant);
-      if (grupos === 0) return;
-      const promedio = unidades > 0 ? valor / unidades : 0;
-      const dto = Math.max(0, grupos * (promedio * cant - Number(pr.precio)));
-      out.push({ id: pr.id, nombre: pr.nombre, unidades, grupos, dto });
-    });
-    return out;
-  }, [promos, filas]);
+  const totalVendido = filas.reduce((a, f) => a + vendido(f), 0);
+  const ventaBruta = filas.reduce((a, f) => a + vendido(f) * de(f, "precio"), 0);
 
-  const puntosInvalidos = useMemo(
-    () =>
-      filas.filter((f) => {
-        const vendido = Number(f.vendido || 0);
-        const precio = Number(f.precio || 0);
-        return vendido > 0 && precio <= 0;
-      }),
-    [filas],
-  );
+  const descuentoPromo = useMemo(() => {
+    const grupos = Number(promoGrupos || 0);
+    if (!promo || grupos === 0 || totalVendido === 0) return 0;
+    const promedio = ventaBruta / totalVendido;
+    const porGrupo = Number(promo.cantidad) * promedio - Number(promo.precio);
+    return Math.max(0, grupos * Math.max(0, porGrupo));
+  }, [promo, promoGrupos, ventaBruta, totalVendido]);
+
+  const ventaNeta = ventaBruta - descuentoPromo;
+  const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
+  const diferenciaDinero = cobrado - ventaNeta;
 
   async function guardar() {
     setErr(null);
     setMsg(null);
     if (!puntoId) return;
-    if (puntosInvalidos.length > 0) {
-      setErr("Hay productos vendidos sin precio. Completa el precio antes de guardar.");
+    const faltanPrecios = filas.some((f) => vendido(f) > 0 && de(f, "precio") <= 0);
+    if (faltanPrecios) return setErr("Hay productos vendidos sin precio.");
+
+    setGuardando(true);
+    const punto = puntos.find((p) => p.id === puntoId)!;
+    const turno = punto.turno ?? 0;
+
+    // 1. despacho: confirmar lo contado
+    let despachoId: string | null = null;
+    const { data: desp, error: e1 } = await supabase
+      .from("despachos")
+      .upsert(
+        { fecha, punto_venta_id: puntoId, turno, estado: "recibido", recibido_por: perfil?.id, recibido_en: new Date().toISOString() },
+        { onConflict: "fecha,punto_venta_id,turno" },
+      )
+      .select("id")
+      .single();
+    if (e1 || !desp) {
+      setErr(e1?.message ?? "No se pudo guardar el despacho");
+      setGuardando(false);
       return;
     }
-    setGuardando(true);
+    despachoId = desp.id;
 
-    const punto = puntos.find((p) => p.id === puntoId);
-    const turno = punto?.turno ?? 0;
-
-    // 1. despacho
-    let despachoId: string | null = null;
-    const { data: existente } = await supabase
-      .from("despachos")
-      .select("id")
-      .eq("fecha", fecha)
-      .eq("punto_venta_id", puntoId)
-      .eq("turno", turno)
-      .maybeSingle();
-
-    if (existente) {
-      despachoId = existente.id;
-    } else {
-      const { data: nuevo, error } = await supabase
-        .from("despachos")
-        .insert({ fecha, punto_venta_id: puntoId, turno, estado: "recibido", recibido_por: perfil?.id })
-        .select("id")
-        .single();
+    const itemsDesp = filas
+      .filter((f) => f.enviado > 0 || f.contado !== "")
+      .map((f) => ({
+        despacho_id: despachoId,
+        producto_id: f.producto_id,
+        cantidad_enviada: f.enviado,
+        cantidad_recibida: f.contado === "" ? null : Number(f.contado),
+      }));
+    if (itemsDesp.length > 0) {
+      const { error } = await supabase
+        .from("despacho_items")
+        .upsert(itemsDesp, { onConflict: "despacho_id,producto_id" });
       if (error) {
-        setErr("Despacho: " + error.message);
-        setGuardando(false);
-        return;
-      }
-      despachoId = nuevo.id;
-    }
-
-    // 2. items del despacho (conteo de lo recibido)
-    for (const f of filas) {
-      if (f.recibido === "" && f.enviado === 0) continue;
-      const { error } = await supabase.from("despacho_items").upsert(
-        {
-          despacho_id: despachoId,
-          producto_id: f.producto_id,
-          cantidad_enviada: f.enviado,
-          cantidad_recibida: f.recibido === "" ? null : Number(f.recibido),
-        },
-        { onConflict: "despacho_id,producto_id" },
-      );
-      if (error) {
-        setErr("Recibido: " + error.message);
+        setErr(error.message);
         setGuardando(false);
         return;
       }
     }
 
-    // 3. sobrantes
+    // 2. sobrantes del turno (con hora de guardado)
     for (const f of filas) {
       if (f.sobrante === "") continue;
       const { error } = await supabase.from("sobrantes").upsert(
@@ -312,15 +259,15 @@ function Contenido() {
       }
     }
 
-    // 4. mermas de vitrina
-    const mermas = filas.filter((f) => Number(f.merma || 0) > 0);
+    // 3. mermas del turno
+    const mermas = filas.filter((f) => de(f, "merma") > 0);
     if (mermas.length > 0) {
       const { error } = await supabase.from("mermas").insert(
         mermas.map((f) => ({
           fecha,
           producto_id: f.producto_id,
           punto_venta_id: puntoId,
-          cantidad: Number(f.merma),
+          cantidad: de(f, "merma"),
           tipo: "vitrina",
           motivo: "roto",
           usuario_id: perfil?.id,
@@ -333,8 +280,8 @@ function Contenido() {
       }
     }
 
-    // 5. venta + detalle
-    const vendidos = filas.filter((f) => Number(f.vendido || 0) > 0);
+    // 4. venta
+    const vendidos = filas.filter((f) => vendido(f) > 0);
     let ventaId: string | null = null;
     if (vendidos.length > 0) {
       const { data: venta, error } = await supabase
@@ -345,7 +292,8 @@ function Contenido() {
           turno,
           usuario_id: perfil?.id,
           total: ventaNeta,
-          descuento: montoDescuento,
+          descuento: descuentoPromo,
+          promociones: Number(promoGrupos || 0),
         })
         .select("id")
         .single();
@@ -360,8 +308,8 @@ function Contenido() {
         vendidos.map((f) => ({
           venta_id: venta.id,
           producto_id: f.producto_id,
-          cantidad: Number(f.vendido),
-          precio_unitario: Number(f.precio),
+          cantidad: vendido(f),
+          precio_unitario: de(f, "precio"),
         })),
       );
       if (e2) {
@@ -371,7 +319,7 @@ function Contenido() {
       }
     }
 
-    // 6. pagos
+    // 5. pagos
     const pagos = [
       { medio: "efectivo", monto: Number(efectivo || 0) },
       { medio: "yape", monto: Number(yape || 0) },
@@ -380,13 +328,7 @@ function Contenido() {
 
     if (pagos.length > 0) {
       const { error } = await supabase.from("pagos").insert(
-        pagos.map((p) => ({
-          venta_id: ventaId,
-          punto_venta_id: puntoId,
-          fecha,
-          medio: p.medio,
-          monto: p.monto,
-        })),
+        pagos.map((p) => ({ venta_id: ventaId, punto_venta_id: puntoId, fecha, medio: p.medio, monto: p.monto })),
       );
       if (error) {
         setErr("Pagos: " + error.message);
@@ -395,36 +337,39 @@ function Contenido() {
       }
     }
 
-    if (gastoEfectivo > 0) {
-      const { error: eg } = await supabase.from("movimientos_caja").insert({
+    // 6. gasto pagado con el efectivo
+    if (Number(gasto || 0) > 0) {
+      await supabase.from("movimientos_caja").insert({
         fecha,
         tipo: "salida",
-        categoria_codigo: gastoCategoria,
-        monto: gastoEfectivo,
+        categoria_codigo: "movilidad",
+        monto: Number(gasto),
         medio: "efectivo",
         turno,
-        concepto: gastoConcepto || "Gasto pagado del efectivo",
+        concepto: "Gasto pagado del efectivo",
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
       });
-      if (eg) {
-        setErr("Gasto: " + eg.message);
-        setGuardando(false);
-        return;
-      }
     }
 
     setGuardando(false);
-    borrarBorrador(`mip:ventas:${fecha}:${puntoId}`);
-    setMsg("Cierre guardado. Revisa las diferencias abajo.");
-    setMostrarEnviado(true);
+    setMsg(
+      `Turno cerrado · vendido ${numero(totalVendido)} unid. · venta neta ${soles(ventaNeta)} · ${
+        Math.abs(diferenciaDinero) < 0.01 ? "caja cuadrada" : "diferencia " + soles(diferenciaDinero)
+      }`,
+    );
     cargar();
   }
+
+  const puntoActual = puntos.find((p) => p.id === puntoId);
+  const turnoNum = puntoActual?.turno === 2 ? "Turno 2" : "Turno 1";
 
   return (
     <>
       <h1>Ventas</h1>
-      <p className="sub">Conteo de lo recibido, ventas del día y dinero</p>
+      <p className="sub">
+        {fechaCorta(fecha)} · {puntoActual?.codigo ?? "—"} · {turnoNum}
+      </p>
 
       <div className="card">
         <div className="grid grid-2">
@@ -433,121 +378,97 @@ function Contenido() {
             <input className="input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           </div>
           <div className="field">
-            <label className="f">Punto de venta</label>
+            <label className="f">Turno</label>
             <select className="input" value={puntoId} onChange={(e) => setPuntoId(e.target.value)}>
               {puntos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.codigo} · {p.nombre}
+                  {p.codigo} · Turno {p.turno ?? 1}
                 </option>
               ))}
             </select>
           </div>
         </div>
-        <p className="sub" style={{ margin: 0 }}>
-          {fechaCorta(fecha)} · {mostrarEnviado ? "envío visible" : "conteo ciego: escribe lo que contaste"}
-        </p>
       </div>
 
       {err && <div className="alert err">{err}</div>}
       {msg && <div className="alert ok">{msg}</div>}
 
-      <div className="card">
-        <h2>Conteo y venta por producto</h2>
-        {filas.length === 0 ? (
-          <p className="empty">No hay productos activos. Créalos en Ajustes.</p>
+      <div className="card" style={{ padding: 10 }}>
+        <div className="row" style={{ marginBottom: 8, padding: "0 4px" }}>
+          <h2 style={{ margin: 0 }}>Conteo del turno</h2>
+          <span className="sub" style={{ margin: 0, fontSize: 12 }}>
+            Inicial + enviado = disponible
+          </span>
+        </div>
+
+        {cargando ? (
+          <p className="empty">Cargando…</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="grid-prog">
               <thead>
                 <tr>
-                  <th>Producto</th>
-                  {mostrarEnviado && <th className="num">Enviado</th>}
-                  <th className="num">Recibí</th>
-                  <th className="num">Vendí</th>
-                  <th className="num">Precio</th>
-                  <th className="num">Sobró</th>
+                  <th className="sticky" style={{ minWidth: 70 }}>Prod.</th>
+                  <th className="num">Inicial</th>
+                  <th className="num">Enviado</th>
+                  <th className="num">Disponible</th>
+                  <th className="num">Contado</th>
+                  <th className="num">Dif.</th>
                   <th className="num">Merma</th>
-                  {mostrarEnviado && <th className="num">Dif.</th>}
+                  <th className="num">Sobrante</th>
+                  <th className="num">Vendido</th>
                 </tr>
               </thead>
               <tbody>
                 {filas.map((f, i) => {
-                  const dif =
-                    Number(f.recibido || 0) -
-                    Number(f.vendido || 0) -
-                    Number(f.sobrante || 0) -
-                    Number(f.merma || 0);
+                  const dif = diferencia(f);
                   return (
                     <tr key={f.producto_id}>
-                      <td>{f.nombre}</td>
-                      {mostrarEnviado && <td className="num">{numero(f.enviado)}</td>}
-                      <td>
+                      <td className="sticky">{f.codigo}</td>
+                      <td className="num" style={{ fontSize: 12.5 }}>{f.inicial || ""}</td>
+                      <td className="num" style={{ fontSize: 12.5 }}>{f.enviado || ""}</td>
+                      <td className="num">{disponible(f) || ""}</td>
+                      <td style={{ padding: 2 }}>
                         <input
-                          className="input num"
+                          className="num"
                           type="number"
                           min="0"
                           step="1"
-                          value={f.recibido}
-                          onChange={(e) => setCampo(i, "recibido", e.target.value)}
-                          style={{ width: 76, padding: "6px 8px" }}
+                          value={f.contado}
+                          onChange={(e) => setCampo(i, "contado", e.target.value)}
                         />
                       </td>
-                      <td>
-                        <input
-                          className="input num"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={f.vendido}
-                          onChange={(e) => setCampo(i, "vendido", e.target.value)}
-                          style={{ width: 76, padding: "6px 8px" }}
-                        />
+                      <td className="num">
+                        {f.contado === "" ? (
+                          ""
+                        ) : (
+                          <span className={`badge ${dif === 0 ? "ok" : "danger"}`}>
+                            {dif > 0 ? "+" : ""}
+                            {numero(dif)}
+                          </span>
+                        )}
                       </td>
-                      <td>
+                      <td style={{ padding: 2 }}>
                         <input
-                          className="input num"
-                          type="number"
-                          min="0"
-                          step="0.1"
-                          value={f.precio}
-                          onChange={(e) => setCampo(i, "precio", e.target.value)}
-                          style={{ width: 86, padding: "6px 8px" }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="input num"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={f.sobrante}
-                          onChange={(e) => setCampo(i, "sobrante", e.target.value)}
-                          style={{ width: 70, padding: "6px 8px" }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="input num"
+                          className="num"
                           type="number"
                           min="0"
                           step="1"
                           value={f.merma}
                           onChange={(e) => setCampo(i, "merma", e.target.value)}
-                          style={{ width: 70, padding: "6px 8px" }}
                         />
                       </td>
-                      {mostrarEnviado && (
-                        <td className="num">
-                          {f.recibido === "" ? (
-                            "—"
-                          ) : (
-                            <span className={`badge ${dif === 0 ? "ok" : dif > 0 ? "danger" : "warn"}`}>
-                              {dif > 0 ? "+" : ""}
-                              {numero(dif)}
-                            </span>
-                          )}
-                        </td>
-                      )}
+                      <td style={{ padding: 2 }}>
+                        <input
+                          className="num"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={f.sobrante}
+                          onChange={(e) => setCampo(i, "sobrante", e.target.value)}
+                        />
+                      </td>
+                      <td className="num"><strong>{vendido(f) || ""}</strong></td>
                     </tr>
                   );
                 })}
@@ -558,14 +479,52 @@ function Contenido() {
       </div>
 
       <div className="card">
-        <h2>Conciliación del día</h2>
-        <div className="grid grid-3">
+        <h2>Precios y dinero</h2>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th className="num">Vendido</th>
+                <th className="num">Precio</th>
+                <th className="num">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.filter((f) => vendido(f) > 0).map((f, i) => (
+                <tr key={f.producto_id}>
+                  <td>{f.codigo}</td>
+                  <td className="num">{vendido(f)}</td>
+                  <td className="num">
+                    <input
+                      className="input num"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={f.precio}
+                      onChange={(e) =>
+                        setFilas((fs) =>
+                          fs.map((x) => (x.producto_id === f.producto_id ? { ...x, precio: e.target.value } : x)),
+                        )
+                      }
+                      style={{ width: 80, padding: "6px 8px" }}
+                    />
+                  </td>
+                  <td className="num">{soles(vendido(f) * de(f, "precio"))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid grid-3" style={{ marginTop: 12 }}>
           <div className="field">
-            <label className="f">Efectivo cobrado</label>
+            <label className="f">Efectivo</label>
             <input className="input num" type="number" min="0" step="0.1" value={efectivo} onChange={(e) => setEfectivo(e.target.value)} placeholder="0.00" />
           </div>
           <div className="field">
-            <label className="f">Yape (va directo a la dueña)</label>
+            <label className="f">Yape</label>
             <input className="input num" type="number" min="0" step="0.1" value={yape} onChange={(e) => setYape(e.target.value)} placeholder="0.00" />
           </div>
           <div className="field">
@@ -576,77 +535,47 @@ function Contenido() {
 
         <div className="grid grid-2">
           <div className="field">
-            <label className="f">Descuentos y promociones (S/)</label>
-            <input className="input num" type="number" min="0" step="0.1" value={descuento} onChange={(e) => setDescuento(e.target.value)} placeholder="0.00" />
-            {sugerencias.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                {sugerencias.map((sg) => (
-                  <div
-                    key={sg.id}
-                    className="row"
-                    style={{ gap: 8, fontSize: 12.5, padding: "4px 0", borderTop: "1px solid #f3ebe5" }}
-                  >
-                    <span>
-                      {sg.nombre}: {sg.unidades} und → {sg.grupos} grupo(s) → {soles(sg.dto)}
-                    </span>
-                    <button
-                      className="btn btn-sm"
-                      type="button"
-                      onClick={() => setDescuento(sg.dto.toFixed(2))}
-                    >
-                      Aplicar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {sugerencias.length === 0 && (
+            <label className="f">Promociones vendidas (grupos)</label>
+            <input className="input num" type="number" min="0" step="1" value={promoGrupos} onChange={(e) => setPromoGrupos(e.target.value)} placeholder="0" />
+            {promo && (
               <p className="sub" style={{ margin: "4px 0 0", fontSize: 12 }}>
-                Las promociones se calculan solas al llenar las cantidades vendidas.
+                {promo.nombre} · descuento {soles(descuentoPromo)}
               </p>
             )}
           </div>
           <div className="field">
-            <label className="f">Gasto pagado con este efectivo (S/)</label>
-            <input className="input num" type="number" min="0" step="0.1" value={gastoMonto} onChange={(e) => setGastoMonto(e.target.value)} placeholder="0.00" />
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <select className="input" value={gastoCategoria} onChange={(e) => setGastoCategoria(e.target.value)}>
-                <option value="movilidad">Pasaje / movilidad</option>
-                <option value="gasto_negocio">Bolsas / insumos</option>
-                <option value="otro_gasto">Otro gasto</option>
-              </select>
-              <input className="input" placeholder="Concepto" value={gastoConcepto} onChange={(e) => setGastoConcepto(e.target.value)} />
-            </div>
+            <label className="f">Gasto pagado del efectivo</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gasto} onChange={(e) => setGasto(e.target.value)} placeholder="0.00" />
           </div>
         </div>
 
         <div className="grid grid-4" style={{ marginTop: 4 }}>
           <div className="kpi">
-            <div className="label">Venta neta</div>
-            <div className="value" style={{ fontSize: 18 }}>{soles(ventaNeta)}</div>
-            <div className="hint">bruta {soles(totalVendido)} − desc. {soles(montoDescuento)}</div>
+            <div className="label">Venta bruta</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(ventaBruta)}</div>
+          </div>
+          <div className="kpi">
+            <div className="label">Promociones</div>
+            <div className="value" style={{ fontSize: 17 }}>−{soles(descuentoPromo)}</div>
           </div>
           <div className="kpi">
             <div className="label">Cobrado</div>
-            <div className="value" style={{ fontSize: 18 }}>{soles(totalCobrado)}</div>
-            <div className="hint">efectivo + yape + transf.</div>
-          </div>
-          <div className="kpi">
-            <div className="label">Diferencia</div>
-            <div className="value" style={{ fontSize: 18, color: Math.abs(diferenciaDinero) < 0.01 ? "var(--ok)" : "var(--danger)" }}>
-              {soles(diferenciaDinero)}
-            </div>
-            <div className="hint">cobrado − venta neta</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(cobrado)}</div>
           </div>
           <div className="kpi accent">
-            <div className="label">Efectivo a entregar</div>
-            <div className="value" style={{ fontSize: 18 }}>{soles(efectivoAEntregar)}</div>
-            <div className="hint">cobrado − gastos {soles(gastoEfectivo)}</div>
+            <div className="label">Diferencia</div>
+            <div
+              className="value"
+              style={{ fontSize: 17, color: Math.abs(diferenciaDinero) < 0.01 ? "var(--ok)" : "var(--danger)" }}
+            >
+              {soles(diferenciaDinero)}
+            </div>
+            <div className="hint">cobrado − venta neta {soles(ventaNeta)}</div>
           </div>
         </div>
 
         <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={guardar} disabled={guardando}>
-          {guardando ? "Guardando…" : "Guardar cierre del día"}
+          {guardando ? "Guardando…" : "Cerrar turno"}
         </button>
       </div>
     </>
