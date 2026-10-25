@@ -137,7 +137,7 @@ function Contenido() {
     });
 
     // cierre de caja ya guardado de este turno
-    const [pg, vt, mv] = await Promise.all([
+    const [pg, vt, mv, mr] = await Promise.all([
       supabase.from("pagos").select("medio, monto").eq("fecha", fecha).eq("punto_venta_id", puntoId),
       supabase
         .from("ventas")
@@ -151,6 +151,12 @@ function Contenido() {
         .eq("fecha", fecha)
         .eq("punto_venta_id", puntoId)
         .eq("tipo", "salida"),
+      supabase
+        .from("mermas")
+        .select("producto_id, cantidad")
+        .eq("fecha", fecha)
+        .eq("punto_venta_id", puntoId)
+        .eq("tipo", "vitrina"),
     ]);
 
     const porMedio: Record<string, number> = {};
@@ -167,6 +173,11 @@ function Contenido() {
     const totalGastos = ((mv.data ?? []) as any[]).reduce((a, x) => a + Number(x.monto), 0);
     setGasto(totalGastos ? String(totalGastos) : "");
 
+    const mermaMap: Record<string, number> = {};
+    ((mr.data ?? []) as any[]).forEach((m) => {
+      mermaMap[m.producto_id] = (mermaMap[m.producto_id] ?? 0) + Number(m.cantidad);
+    });
+
     setFilas(
       productos.map((p) => ({
         producto_id: p.id,
@@ -177,7 +188,7 @@ function Contenido() {
           enviado[p.id] !== undefined && desp.data
             ? String((desp.data as any).despacho_items.find((x: any) => x.producto_id === p.id)?.cantidad_recibida ?? "")
             : "",
-        merma: "",
+        merma: mermaMap[p.id] !== undefined ? String(mermaMap[p.id]) : "",
         sobrante: sobMap[p.id] !== undefined ? String(sobMap[p.id]) : "",
         precio: precioMap[p.id] ? String(precioMap[p.id]) : "2",
       })),
@@ -425,6 +436,13 @@ function Contenido() {
       { onConflict: "fecha,punto_venta_id,turno" },
     );
 
+    await cargar();
+    setEfectivo("");
+    setYape("");
+    setTransferencia("");
+    setGasto("");
+    setPromoGrupos("");
+
     setGuardando(false);
     setMsg(
       `Turno cerrado · vendido ${numero(totalVendido)} unid. · venta neta ${soles(ventaNeta)} · ${
@@ -523,6 +541,7 @@ function Contenido() {
                           step="1"
                           value={f.contado}
                           onChange={(e) => setCampo(i, "contado", e.target.value)}
+                          style={{ width: "100%", minWidth: 62 }}
                         />
                       </td>
                       <td className="num">
@@ -543,6 +562,7 @@ function Contenido() {
                           step="1"
                           value={f.merma}
                           onChange={(e) => setCampo(i, "merma", e.target.value)}
+                          style={{ width: "100%", minWidth: 58 }}
                         />
                       </td>
                       <td style={{ padding: 2 }}>
@@ -553,6 +573,7 @@ function Contenido() {
                           step="1"
                           value={f.sobrante}
                           onChange={(e) => setCampo(i, "sobrante", e.target.value)}
+                          style={{ width: "100%", minWidth: 62 }}
                         />
                       </td>
                       <td className="num"><strong>{vendido(f) || ""}</strong></td>
