@@ -101,17 +101,10 @@ function Contenido() {
       enviado[i.producto_id] = Number(i.cantidad_enviada);
     });
 
-    // inventario inicial: el sobrante del turno anterior
-    let prevPunto: string | null = null;
-    let prevFecha = fecha;
-    if (punto?.punto_anterior_id) {
-      prevPunto = punto.punto_anterior_id;
-      prevFecha = fecha;
-    } else {
-      const sig = puntos.find((p) => p.punto_anterior_id === puntoId);
-      prevPunto = sig?.id ?? null;
-      prevFecha = restarDia(fecha);
-    }
+    // Solo el turno 2 arrastra el sobrante del turno 1.
+    // En el turno 1 el stock anterior ya viene incluido en el envío de producción.
+    const prevPunto = punto?.punto_anterior_id ?? null;
+    const prevFecha = fecha;
 
     const inicial: Record<string, number> = {};
     if (prevPunto) {
@@ -192,19 +185,12 @@ function Contenido() {
   const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
   const diferenciaDinero = cobrado - ventaNeta;
 
-  async function guardar() {
-    setErr(null);
-    setMsg(null);
-    if (!puntoId) return;
-    const faltanPrecios = filas.some((f) => vendido(f) > 0 && de(f, "precio") <= 0);
-    if (faltanPrecios) return setErr("Hay productos vendidos sin precio.");
-
-    setGuardando(true);
+  // Guarda solo el conteo del turno: lo recibido, la merma y los sobrantes.
+  async function guardarConteo(): Promise<boolean> {
+    if (!puntoId) return false;
     const punto = puntos.find((p) => p.id === puntoId)!;
     const turno = punto.turno ?? 0;
 
-    // 1. despacho: confirmar lo contado
-    let despachoId: string | null = null;
     const { data: desp, error: e1 } = await supabase
       .from("despachos")
       .upsert(
@@ -214,32 +200,26 @@ function Contenido() {
       .select("id")
       .single();
     if (e1 || !desp) {
-      setErr(e1?.message ?? "No se pudo guardar el despacho");
-      setGuardando(false);
-      return;
+      setErr(e1?.message ?? "No se pudo guardar el conteo");
+      return false;
     }
-    despachoId = desp.id;
 
-    const itemsDesp = filas
+    const items = filas
       .filter((f) => f.enviado > 0 || f.contado !== "")
       .map((f) => ({
-        despacho_id: despachoId,
+        despacho_id: desp.id,
         producto_id: f.producto_id,
         cantidad_enviada: f.enviado,
         cantidad_recibida: f.contado === "" ? null : Number(f.contado),
       }));
-    if (itemsDesp.length > 0) {
-      const { error } = await supabase
-        .from("despacho_items")
-        .upsert(itemsDesp, { onConflict: "despacho_id,producto_id" });
+    if (items.length > 0) {
+      const { error } = await supabase.from("despacho_items").upsert(items, { onConflict: "despacho_id,producto_id" });
       if (error) {
         setErr(error.message);
-        setGuardando(false);
-        return;
+        return false;
       }
     }
 
-    // 2. sobrantes del turno (con hora de guardado)
     for (const f of filas) {
       if (f.sobrante === "") continue;
       const { error } = await supabase.from("sobrantes").upsert(
@@ -254,12 +234,19 @@ function Contenido() {
       );
       if (error) {
         setErr("Sobrante: " + error.message);
-        setGuardando(false);
-        return;
+        return false;
       }
     }
 
-    // 3. mermas del turno
+    for (const f of filas) {
+      await supabase
+        .from("mermas")
+        .delete()
+        .eq("fecha", fecha)
+        .eq("producto_id", f.producto_id)
+        .eq("punto_venta_id", puntoId)
+        .eq("tipo", "vitrina");
+    }
     const mermas = filas.filter((f) => de(f, "merma") > 0);
     if (mermas.length > 0) {
       const { error } = await supabase.from("mermas").insert(
@@ -275,9 +262,40 @@ function Contenido() {
       );
       if (error) {
         setErr("Merma: " + error.message);
-        setGuardando(false);
-        return;
+        return false;
       }
+    }
+
+    return true;
+  }
+
+  async function soloConteo() {
+    setErr(null);
+    setMsg(null);
+    setGuardando(true);
+    const ok = await guardarConteo();
+    setGuardando(false);
+    if (ok) {
+      setMsg("Conteo guardado. Puedes cerrar el turno cuando termines de vender.");
+      cargar();
+    }
+  }
+
+  async function guardar() {
+    setErr(null);
+    setMsg(null);
+    if (!puntoId) return;
+    const faltanPrecios = filas.some((f) => vendido(f) > 0 && de(f, "precio") <= 0);
+    if (faltanPrecios) return setErr("Hay productos vendidos sin precio.");
+
+    setGuardando(true);
+    const punto = puntos.find((p) => p.id === puntoId)!;
+    const turno = punto.turno ?? 0;
+
+    const okConteo = await guardarConteo();
+    if (!okConteo) {
+      setGuardando(false);
+      return;
     }
 
     // 4. venta
@@ -362,6 +380,7 @@ function Contenido() {
   }
 
   const puntoActual = puntos.find((p) => p.id === puntoId);
+  const tieneInicial = Boolean(puntoActual?.punto_anterior_id);
   const turnoNum = puntoActual?.turno === 2 ? "Turno 2" : "Turno 1";
 
   return (
@@ -409,7 +428,7 @@ function Contenido() {
               <thead>
                 <tr>
                   <th className="sticky" style={{ minWidth: 70 }}>Prod.</th>
-                  <th className="num">Inicial</th>
+                  {tieneInicial && <th className="num">Inicial</th>}
                   <th className="num">Enviado</th>
                   <th className="num">Disponible</th>
                   <th className="num">Contado</th>
@@ -425,7 +444,9 @@ function Contenido() {
                   return (
                     <tr key={f.producto_id}>
                       <td className="sticky">{f.codigo}</td>
-                      <td className="num" style={{ fontSize: 12.5 }}>{f.inicial || ""}</td>
+                      {tieneInicial && (
+                        <td className="num" style={{ fontSize: 12.5 }}>{f.inicial || ""}</td>
+                      )}
                       <td className="num" style={{ fontSize: 12.5 }}>{f.enviado || ""}</td>
                       <td className="num">{disponible(f) || ""}</td>
                       <td style={{ padding: 2 }}>
@@ -574,9 +595,14 @@ function Contenido() {
           </div>
         </div>
 
-        <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={guardar} disabled={guardando}>
-          {guardando ? "Guardando…" : "Cerrar turno"}
-        </button>
+        <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+          <button className="btn" onClick={soloConteo} disabled={guardando}>
+            Guardar conteo
+          </button>
+          <button className="btn btn-primary" onClick={guardar} disabled={guardando}>
+            {guardando ? "Guardando…" : "Cerrar turno"}
+          </button>
+        </div>
       </div>
     </>
   );
