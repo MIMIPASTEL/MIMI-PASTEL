@@ -7,6 +7,7 @@ import SobrantesRevision from "@/components/SobrantesRevision";
 import ParrillaPrograma from "@/components/ParrillaPrograma";
 import Despacho from "@/components/Despacho";
 import MermasResumen from "@/components/MermasResumen";
+import InsumosProduccion from "@/components/InsumosProduccion";
 
 type Prod = { id: string; codigo?: string | null; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string; es_fijo: boolean; turno: number | null };
@@ -75,6 +76,8 @@ function Contenido() {
       <Despacho fecha={fecha} productos={productos} puntos={puntos} />
 
       <MermasResumen fecha={fecha} productos={productos} />
+
+        <InsumosProduccion fecha={fecha} />
     </>
   );
 }

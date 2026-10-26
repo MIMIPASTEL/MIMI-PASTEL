@@ -443,7 +443,6 @@ function Contenido() {
 
       <RegistroProduccion productos={productos} />
 
-      <InsumosProduccion fecha={hoyISO()} />
 
 
       <div className="card">
