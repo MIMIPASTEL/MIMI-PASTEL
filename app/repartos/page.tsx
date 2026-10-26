@@ -14,7 +14,7 @@ export default function RepartosPage() {
   const [puntoId, setPuntoId] = useState("");
   const [productos, setProductos] = useState<Prod[]>([]);
   const [filas, setFilas] = useState<Fila[]>([]);
-  const [tipoPrecio, setTipoPrecio] = useState<"directo" | "distribuidor">("directo");
+  const [tipoPrecio, setTipoPrecio] = useState<"directo" | "distribuidor">("distribuidor");
   const [descuento, setDescuento] = useState("");
   const [efectivo, setEfectivo] = useState("");
   const [yape, setYape] = useState("");
@@ -94,6 +94,38 @@ export default function RepartosPage() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipoPrecio, preciosMap]);
+
+  useEffect(() => {
+    async function traerProgramado() {
+      if (!puntoId || !fecha) return;
+      const { data: req } = await supabase
+        .from("requerimientos")
+        .select("id")
+        .eq("fecha", fecha)
+        .maybeSingle();
+      if (!req) return;
+
+      const { data: its } = await supabase
+        .from("requerimiento_items")
+        .select("producto_id, cantidad")
+        .eq("requerimiento_id", req.id)
+        .eq("destino_punto_id", puntoId);
+
+      const mapa: Record<string, number> = {};
+      ((its ?? []) as any[]).forEach((x) => {
+        mapa[x.producto_id] = (mapa[x.producto_id] ?? 0) + Number(x.cantidad);
+      });
+
+      setFilas((fs) =>
+        fs.map((f) => ({
+          ...f,
+          cantidad: mapa[f.producto_id] ? String(mapa[f.producto_id]) : "",
+        })),
+      );
+    }
+    traerProgramado();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fecha, puntoId]);
 
   const set = (i: number, campo: keyof Fila, v: string) =>
     setFilas((f) => f.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
