@@ -51,6 +51,16 @@ export default function CobroPedido({
       return setErr(error.message);
     }
 
+    await supabase.from("movimientos_caja").insert({
+      fecha: new Date().toISOString().slice(0, 10),
+      tipo: "ingreso",
+      categoria_codigo: pagado > 0 ? "venta" : "adelanto_pedido",
+      monto: valor,
+      medio,
+      concepto: pagado > 0 ? "Saldo de pedido" : "Adelanto de pedido",
+      referencia: `pedido:${pedidoId}`,
+    });
+
     const nuevoPagado = pagado + valor;
     await supabase.from("pedidos").update({ adelanto: nuevoPagado }).eq("id", pedidoId);
 
