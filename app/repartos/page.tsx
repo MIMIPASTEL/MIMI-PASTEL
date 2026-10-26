@@ -213,6 +213,34 @@ export default function RepartosPage() {
       pagos.push({ venta_id: venta.id, punto_venta_id: puntoId, fecha, medio: "yape", monto: Number(yape) });
     if (pagos.length) await supabase.from("pagos").insert(pagos);
 
+    // refleja el cobro en el flujo de caja
+    const ref = `reparto:${fecha}:${puntoId}`;
+    await supabase.from("movimientos_caja").delete().eq("referencia", ref);
+
+    const movimientos: any[] = [];
+    const etiqueta = `Reparto ${punto?.codigo ?? ""}`.trim();
+    if (Number(efectivo || 0) > 0)
+      movimientos.push({
+        fecha,
+        tipo: "ingreso",
+        categoria_codigo: "venta",
+        monto: Number(efectivo),
+        medio: "efectivo",
+        concepto: etiqueta,
+        referencia: ref,
+      });
+    if (Number(yape || 0) > 0)
+      movimientos.push({
+        fecha,
+        tipo: "ingreso",
+        categoria_codigo: "venta",
+        monto: Number(yape),
+        medio: "yape",
+        concepto: etiqueta,
+        referencia: ref,
+      });
+    if (movimientos.length) await supabase.from("movimientos_caja").insert(movimientos);
+
     setGuardando(false);
     setYaGuardado(true);
     setMsg(`Reparto guardado · total ${soles(total)}${credito > 0 ? ` · crédito ${soles(credito)}` : ""}`);
