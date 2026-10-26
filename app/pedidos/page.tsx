@@ -5,6 +5,7 @@ import Shell, { usePerfil } from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 import { quitarPedidoDeProduccion, sincronizarPedido } from "@/lib/pedidos";
 import PedidoDetalle from "@/components/PedidoDetalle";
+import CobroPedido from "@/components/CobroPedido";
 import { borrarBorrador, guardarBorrador, leerBorrador } from "@/lib/draft";
 import EditarPedido from "@/components/EditarPedido";
 
@@ -505,6 +506,14 @@ function Contenido() {
                   <button className="btn btn-sm" onClick={() => enviarWhatsapp(p)}>
                     WhatsApp
                   </button>
+                  <CobroPedido
+                    pedidoId={p.id}
+                    totalPedido={(p.pedido_items ?? []).reduce(
+                      (a: number, it: any) => a + Number(it.cantidad) * Number(it.precio_unitario ?? 0),
+                      0,
+                    )}
+                    onSaved={cargar}
+                  />
                   {p.estado !== "entregado" && p.estado !== "cancelado" && (
                     <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
                       Sincronizar con producción
