@@ -69,6 +69,16 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  useEffect(() => {
+    if (!perfil) return;
+    const entrada = NAV.find((n) => n.href === path);
+    if (entrada && !entrada.roles.includes(perfil.rol)) {
+      const destino =
+        perfil.rol === "produccion" ? "/produccion" : perfil.rol === "ventas" ? "/ventas" : "/hoy";
+      router.replace(destino);
+    }
+  }, [perfil, path, router]);
+
   const rol = perfil?.rol ?? "ventas";
   const visible = NAV.filter((n) => n.roles.includes(rol));
 
