@@ -256,31 +256,31 @@ function Contenido() {
       .map((it) => {
         const nombre = it.productos?.nombre ?? nombres[it.producto_id] ?? "Producto";
         const subtotal = (Number(it.cantidad) * Number(it.precio_unitario ?? 0)).toFixed(2);
-        const lineas = [`- ${nombre} x ${Number(it.cantidad)} - S/ ${subtotal}`];
-        if (it.tamano) lineas.push(`   Tamaño: ${it.tamano}`);
-        if (it.empaque) lineas.push(`   Empaque: ${it.empaque}`);
-        if (it.nota) lineas.push(`   Decoración: ${it.nota}`);
+        const lineas = [`🎂 ${nombre} × ${Number(it.cantidad)} — S/ ${subtotal}`];
+        if (it.tamano) lineas.push(`   🍰 Tamaño: ${it.tamano}`);
+        if (it.empaque) lineas.push(`   📦 Empaque: ${it.empaque}`);
+        if (it.nota) lineas.push(`   🖌️ Decoración: ${it.nota}`);
         return lineas.join("\n");
       })
       .join("\n\n");
 
     const texto =
-      `MIMI PASTEL\n` +
-      `Confirmación de pedido\n\n` +
-      `Gracias por tu pedido!\n` +
+      `🧁 *MIMI PASTEL*\n` +
+      `_Confirmación de pedido_\n\n` +
+      `¡Gracias por tu pedido! 💗\n` +
       `Nos alegra ser parte de tus momentos especiales.\n\n` +
-      `Cliente: ${p.cliente}\n` +
-      `Entrega: ${fecha}${hora ? " " + hora : ""}\n` +
-      (p.lugar ? `Lugar: ${p.lugar}\n` : "") +
-      `\nDETALLE DEL PEDIDO\n` +
+      `👤 *Cliente:* ${p.cliente}\n` +
+      `📅 *Entrega:* ${fecha}${hora ? " · " + hora : ""}\n` +
+      (p.lugar ? `📍 *Lugar:* ${p.lugar}\n` : "") +
+      `\n💗 *DETALLE DEL PEDIDO* 💗\n` +
       `------------------------------\n` +
       `${detalle}\n` +
       `------------------------------\n\n` +
-      `Total: S/ ${total.toFixed(2)}\n` +
-      `Adelanto: S/ ${adelanto.toFixed(2)}\n` +
-      `SALDO PENDIENTE: S/ ${saldo.toFixed(2)}\n\n` +
-      `Gracias por confiar en Mimi Pastel.\n` +
-      `Si no le gusta, no lo paga.`;
+      `🧾 Total: *S/ ${total.toFixed(2)}*\n` +
+      `💵 Adelanto: S/ ${adelanto.toFixed(2)}\n` +
+      `❗ *SALDO PENDIENTE: S/ ${saldo.toFixed(2)}*\n\n` +
+      `Gracias por confiar en Mimi Pastel 💗\n` +
+      `_Si no le gusta, no lo paga._`;
 
     const tel = (p.telefono ?? "").replace(/\D/g, "");
     const destino = tel.length === 9 ? `51${tel}` : tel;
