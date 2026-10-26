@@ -31,6 +31,7 @@ function Contenido() {
   const [verEventuales, setVerEventuales] = useState(false);
   const [abrirNuevo, setAbrirNuevo] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoFijo, setNuevoFijo] = useState(false);
   const [pedidosDia, setPedidosDia] = useState<any[]>([]);
   const [sobranteProd, setSobranteProd] = useState<Record<string, number>>({});
   const [draftDisponible, setDraftDisponible] = useState(false);
@@ -227,6 +228,14 @@ function Contenido() {
     setMsg(`${p.codigo}: vuelve a la parrilla.`);
   }
 
+  async function desactivarCliente(p: Punto) {
+    if (!confirm(`Desactivar a ${p.codigo}? Dejara de aparecer en programacion y repartos.`)) return;
+    const { error } = await supabase.from("puntos_venta").update({ es_fijo: false }).eq("id", p.id);
+    if (error) return setErr(error.message);
+    setPuntos((ps) => ps.map((x) => (x.id === p.id ? { ...x, es_fijo: false } : x)));
+    setMsg(`${p.codigo} desactivado. Su historial se conserva.`);
+  }
+
   async function crearEventual() {
     setErr(null);
     setMsg(null);
@@ -254,7 +263,7 @@ function Contenido() {
 
     const { data, error } = await supabase
       .from("puntos_venta")
-      .insert({ codigo, nombre, tipo: "repartos", es_fijo: false })
+      .insert({ codigo, nombre, tipo: "repartos", es_fijo: nuevoFijo })
       .select("id, codigo, nombre, tipo, es_fijo")
       .single();
 
@@ -416,7 +425,7 @@ function Contenido() {
           </label>
 
           <button className="btn btn-sm" type="button" onClick={() => setAbrirNuevo((v) => !v)}>
-            {abrirNuevo ? "Cancelar" : "+ Añadir cliente eventual"}
+            {abrirNuevo ? "Cancelar" : "+ Añadir cliente"}
           </button>
         </div>
 
@@ -435,11 +444,42 @@ function Contenido() {
                 }
               }}
             />
+            <label className="row" style={{ gap: 6, alignItems: "center", fontSize: 13 }}>
+              <input
+                type="checkbox"
+                checked={nuevoFijo}
+                onChange={(e) => setNuevoFijo(e.target.checked)}
+                style={{ width: 16, height: 16 }}
+              />
+              Cliente fijo de reparto
+            </label>
             <button className="btn btn-primary" type="button" onClick={crearEventual}>
               Agregar
             </button>
           </div>
         )}
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {puntos
+            .filter((p) => p.tipo === "repartos" && p.es_fijo)
+            .map((p) => (
+              <span
+                key={p.id}
+                className="badge"
+                style={{ display: "inline-flex", gap: 6, alignItems: "center", padding: "4px 8px" }}
+              >
+                {p.codigo}
+                <button
+                  type="button"
+                  onClick={() => desactivarCliente(p)}
+                  style={{ background: "none", border: 0, cursor: "pointer", color: "inherit", fontWeight: 700 }}
+                  title="Desactivar cliente"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+        </div>
 
         {abrirNuevo && (
           <p className="sub" style={{ margin: "8px 0 0" }}>
