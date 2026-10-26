@@ -6,8 +6,8 @@ import Link from "next/link";
 import { supabase, type Perfil } from "@/lib/supabase";
 
 const NAV = [
-  { href: "/hoy", label: "Hoy", ico: "☀️", roles: ["admin", "produccion", "ventas"] },
-  { href: "/programacion", label: "Programar", ico: "🗓️", roles: ["admin", "produccion"] },
+  { href: "/hoy", label: "Hoy", ico: "☀️", roles: ["admin"] },
+  { href: "/programacion", label: "Programar", ico: "🗓️", roles: ["admin"] },
   { href: "/produccion", label: "Producción", ico: "🥣", roles: ["admin", "produccion"] },
   { href: "/ventas", label: "Ventas", ico: "🧾", roles: ["admin", "ventas"] },
   { href: "/repartos", label: "Repartos", ico: "🛵", roles: ["admin", "ventas"] },
