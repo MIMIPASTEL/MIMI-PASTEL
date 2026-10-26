@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { supabase, soles } from "@/lib/supabase";
@@ -138,7 +138,7 @@ export default function EditarPedido({
             <input className="input" value={cliente} onChange={(e) => setCliente(e.target.value)} />
           </div>
           <div className="field">
-            <label className="f">TelÃ©fono</label>
+            <label className="f">Teléfono</label>
             <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function EditarPedido({
             <select className="input" value={estado} onChange={(e) => setEstado(e.target.value)}>
               <option value="borrador">Borrador</option>
               <option value="confirmado">Confirmado</option>
-              <option value="en_produccion">En producciÃ³n</option>
+              <option value="en_produccion">En producción</option>
               <option value="despachado">Despachado</option>
               <option value="entregado">Entregado</option>
               <option value="cancelado">Cancelado</option>
@@ -175,7 +175,7 @@ export default function EditarPedido({
           <div key={i} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 10, marginBottom: 8 }}>
             <div className="grid grid-3">
               <select className="input" value={l.producto_id} onChange={(e) => setLinea(i, "producto_id", e.target.value)}>
-                <option value="">Productoâ€¦</option>
+                <option value="">Producto…</option>
                 {productos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}
@@ -204,13 +204,13 @@ export default function EditarPedido({
             <div className="grid grid-2" style={{ marginTop: 8 }}>
               <input
                 className="input"
-                placeholder="TamaÃ±o: grande, 20 porcionesâ€¦"
+                placeholder="Tamaño: grande, 20 porciones…"
                 value={l.tamano}
                 onChange={(e) => setLinea(i, "tamano", e.target.value)}
               />
               <input
                 className="input"
-                placeholder="Indicaciones: baÃ±ada en chantillyâ€¦"
+                placeholder="Indicaciones: bañada en chantilly…"
                 value={l.nota}
                 onChange={(e) => setLinea(i, "nota", e.target.value)}
               />
@@ -221,7 +221,7 @@ export default function EditarPedido({
               value={l.empaque}
               onChange={(e) => setLinea(i, "empaque", e.target.value)}
             >
-              <option value="">Empaqueâ€¦</option>
+              <option value="">Empaque…</option>
               <option value="caja">Caja</option>
               <option value="bolsa">Bolsa</option>
               <option value="bandeja">Bandeja</option>
@@ -279,9 +279,9 @@ export default function EditarPedido({
               </button>
             ) : (
               <>
-                <span style={{ fontSize: 13 }}>Â¿Eliminar definitivamente?</span>
+                <span style={{ fontSize: 13 }}>¿Eliminar definitivamente?</span>
                 <button className="btn btn-sm btn-danger" type="button" onClick={eliminar} disabled={guardando}>
-                  SÃ­, eliminar
+                  Sí, eliminar
                 </button>
                 <button className="btn btn-sm" type="button" onClick={() => setConfirmando(false)}>
                   No
@@ -292,7 +292,7 @@ export default function EditarPedido({
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <strong>Total: {soles(total)}</strong>
             <button className="btn btn-primary" onClick={guardar} disabled={guardando} type="button">
-              {guardando ? "Guardandoâ€¦" : "Guardar cambios"}
+              {guardando ? "Guardando…" : "Guardar cambios"}
             </button>
           </div>
         </div>

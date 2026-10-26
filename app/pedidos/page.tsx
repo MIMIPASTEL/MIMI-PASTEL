@@ -256,31 +256,31 @@ function Contenido() {
       .map((it) => {
         const nombre = it.productos?.nombre ?? nombres[it.producto_id] ?? "Producto";
         const subtotal = (Number(it.cantidad) * Number(it.precio_unitario ?? 0)).toFixed(2);
-        const lineas = [`ðŸŽ‚ ${nombre} Ã— ${Number(it.cantidad)} â€” S/ ${subtotal}`];
-        if (it.tamano) lineas.push(`   ðŸ° TamaÃ±o: ${it.tamano}`);
-        if (it.empaque) lineas.push(`   ðŸ“¦ Empaque: ${it.empaque}`);
-        if (it.nota) lineas.push(`   ðŸ–Œï¸ DecoraciÃ³n: ${it.nota}`);
+        const lineas = [`- ${nombre} x ${Number(it.cantidad)} - S/ ${subtotal}`];
+        if (it.tamano) lineas.push(`   Tamaño: ${it.tamano}`);
+        if (it.empaque) lineas.push(`   Empaque: ${it.empaque}`);
+        if (it.nota) lineas.push(`   Decoración: ${it.nota}`);
         return lineas.join("\n");
       })
       .join("\n\n");
 
     const texto =
-      `ðŸ§ *MIMI PASTEL*\n` +
-      `_ConfirmaciÃ³n de pedido_\n\n` +
-      `Â¡Gracias por tu pedido! ðŸ’—\n` +
+      `MIMI PASTEL\n` +
+      `Confirmación de pedido\n\n` +
+      `Gracias por tu pedido!\n` +
       `Nos alegra ser parte de tus momentos especiales.\n\n` +
-      `ðŸ‘¤ *Cliente:* ${p.cliente}\n` +
-      `ðŸ“… *Entrega:* ${fecha}${hora ? " Â· " + hora : ""}\n` +
-      (p.lugar ? `ðŸ“ *Lugar:* ${p.lugar}\n` : "") +
-      `\nðŸ’— *DETALLE DEL PEDIDO* ðŸ’—\n` +
-      `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n` +
+      `Cliente: ${p.cliente}\n` +
+      `Entrega: ${fecha}${hora ? " " + hora : ""}\n` +
+      (p.lugar ? `Lugar: ${p.lugar}\n` : "") +
+      `\nDETALLE DEL PEDIDO\n` +
+      `------------------------------\n` +
       `${detalle}\n` +
-      `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n` +
-      `ðŸ§¾ Total: *S/ ${total.toFixed(2)}*\n` +
-      `ðŸ’µ Adelanto: S/ ${adelanto.toFixed(2)}\n` +
-      `â— *SALDO PENDIENTE: S/ ${saldo.toFixed(2)}*\n\n` +
-      `Gracias por confiar en Mimi Pastel ðŸ’—\n` +
-      `_Si no le gusta, no lo paga._`;
+      `------------------------------\n\n` +
+      `Total: S/ ${total.toFixed(2)}\n` +
+      `Adelanto: S/ ${adelanto.toFixed(2)}\n` +
+      `SALDO PENDIENTE: S/ ${saldo.toFixed(2)}\n\n` +
+      `Gracias por confiar en Mimi Pastel.\n` +
+      `Si no le gusta, no lo paga.`;
 
     const tel = (p.telefono ?? "").replace(/\D/g, "");
     const destino = tel.length === 9 ? `51${tel}` : tel;
@@ -489,7 +489,7 @@ function Contenido() {
       <div className="card">
         <h2>Ãšltimos pedidos</h2>
         {pedidos.length === 0 ? (
-          <p className="empty">TodavÃ­a no hay pedidos.</p>
+          <p className="empty">Todavía no hay pedidos.</p>
         ) : (
           pedidos.map((p) => (
             <PedidoDetalle
