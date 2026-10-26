@@ -71,6 +71,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   const rol = perfil?.rol ?? "ventas";
   const visible = NAV.filter((n) => n.roles.includes(rol));
+  const sinAcceso = path === "/hoy" && rol !== "admin";
 
   return (
     <>
@@ -103,7 +104,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </nav>
 
       <main className="main">
-        <PerfilCtx.Provider value={perfil}>{children}</PerfilCtx.Provider>
+        <PerfilCtx.Provider value={perfil}>
+        {sinAcceso ? (
+          <div className="card">
+            <h2>Sin acceso</h2>
+            <p className="sub">
+              Esta pantalla es solo para el administrador.
+              {rol === "produccion" ? " Ve a Producción." : " Ve a Ventas."}
+            </p>
+            <a className="btn btn-sm" href={rol === "produccion" ? "/produccion" : "/ventas"}>
+              Ir a mi pantalla
+            </a>
+          </div>
+        ) : (
+          children
+        )}
+      </PerfilCtx.Provider>
       </main>
     </>
   );
