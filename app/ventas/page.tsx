@@ -49,6 +49,8 @@ function Contenido() {
   const [err, setErr] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [cierreData, setCierreData] = useState<any>(null);
+  const [tocado, setTocado] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -165,11 +167,14 @@ function Contenido() {
     // si ya hay un cierre guardado para este turno, se usa tal cual
     const { data: cierre } = await supabase
       .from("cuadres")
-      .select("efectivo, yape, transferencia, gasto, promociones, descuento")
+      .select("efectivo, yape, transferencia, gasto, promociones, descuento, dinero_esperado, dinero_contado")
       .eq("fecha", fecha)
       .eq("punto_venta_id", puntoId)
       .eq("turno", turno)
       .maybeSingle();
+
+    setCierreData(cierre ?? null);
+    setTocado(false);
 
     if (cierre) {
       setEfectivo(Number(cierre.efectivo) ? String(cierre.efectivo) : "");
@@ -225,6 +230,7 @@ function Contenido() {
   }, [cargar]);
 
   function setCampo(i: number, campo: keyof Fila, v: string) {
+    setTocado(true);
     setFilas((f) => f.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
   }
 
@@ -263,6 +269,16 @@ function Contenido() {
   const ventaNeta = ventaBruta - descuentoPromo;
   const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
   const diferenciaDinero = cobrado - ventaNeta;
+
+  // si hay un cierre guardado y no se tocó nada, se muestra tal cual quedó
+  const usaCierre = Boolean(cierreData) && !tocado;
+  const brutaVer = usaCierre
+    ? Number(cierreData.dinero_esperado) + Number(cierreData.descuento)
+    : ventaBruta;
+  const promoVer = usaCierre ? Number(cierreData.descuento) : descuentoPromo;
+  const netaVer = usaCierre ? Number(cierreData.dinero_esperado) : ventaNeta;
+  const cobradoVer = usaCierre ? Number(cierreData.dinero_contado) : cobrado;
+  const difVer = cobradoVer - netaVer;
 
   // Guarda solo el conteo del turno: lo recibido, la merma y los sobrantes.
   async function guardarConteo(): Promise<boolean> {
@@ -484,7 +500,7 @@ function Contenido() {
 
     setGuardando(false);
     setMsg(
-      `Turno cerrado · vendido ${numero(totalVendido)} unid. · venta neta ${soles(ventaNeta)} · ${
+      `Turno cerrado · vendido ${numero(totalVendido)} unid. · venta neta ${soles(netaVer)} · ${
         Math.abs(diferenciaDinero) < 0.01 ? "caja cuadrada" : "diferencia " + soles(diferenciaDinero)
       }`,
     );
@@ -636,47 +652,47 @@ function Contenido() {
         <div className="grid grid-3" style={{ marginTop: 12 }}>
           <div className="field">
             <label className="f">Efectivo</label>
-            <input className="input num" type="number" min="0" step="0.1" value={efectivo} onChange={(e) => setEfectivo(e.target.value)} placeholder="0.00" />
+            <input className="input num" type="number" min="0" step="0.1" value={efectivo} onChange={(e) => { setTocado(true); setEfectivo(e.target.value); }} placeholder="0.00" />
           </div>
           <div className="field">
             <label className="f">Yape</label>
-            <input className="input num" type="number" min="0" step="0.1" value={yape} onChange={(e) => setYape(e.target.value)} placeholder="0.00" />
+            <input className="input num" type="number" min="0" step="0.1" value={yape} onChange={(e) => { setTocado(true); setYape(e.target.value); }} placeholder="0.00" />
           </div>
           <div className="field">
             <label className="f">Transferencia</label>
-            <input className="input num" type="number" min="0" step="0.1" value={transferencia} onChange={(e) => setTransferencia(e.target.value)} placeholder="0.00" />
+            <input className="input num" type="number" min="0" step="0.1" value={transferencia} onChange={(e) => { setTocado(true); setTransferencia(e.target.value); }} placeholder="0.00" />
           </div>
         </div>
 
         <div className="grid grid-2">
           <div className="field">
             <label className="f">Promociones vendidas (grupos)</label>
-            <input className="input num" type="number" min="0" step="1" value={promoGrupos} onChange={(e) => setPromoGrupos(e.target.value)} placeholder="0" />
+            <input className="input num" type="number" min="0" step="1" value={promoGrupos} onChange={(e) => { setTocado(true); setPromoGrupos(e.target.value); }} placeholder="0" />
             {promo && (
               <p className="sub" style={{ margin: "4px 0 0", fontSize: 12 }}>
-                {promo.nombre} · descuento {soles(descuentoPromo)}
+                {promo.nombre} · descuento {soles(promoVer)}
               </p>
             )}
           </div>
           <div className="field">
             <label className="f">Gasto pagado del efectivo</label>
-            <input className="input num" type="number" min="0" step="0.1" value={gasto} onChange={(e) => setGasto(e.target.value)} placeholder="0.00" />
+            <input className="input num" type="number" min="0" step="0.1" value={gasto} onChange={(e) => { setTocado(true); setGasto(e.target.value); }} placeholder="0.00" />
           </div>
         </div>
 
         <div className="grid grid-4" style={{ marginTop: 4 }}>
           <div className="kpi">
             <div className="label">Venta bruta</div>
-            <div className="value" style={{ fontSize: 17 }}>{soles(ventaBruta)}</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(brutaVer)}</div>
           </div>
           <div className="kpi">
             <div className="label">Promociones</div>
-            <div className="value" style={{ fontSize: 17 }}>−{soles(descuentoPromo)}</div>
+            <div className="value" style={{ fontSize: 17 }}>−{soles(promoVer)}</div>
             <div className="hint">{promoGrupos || 0} grupo(s)</div>
           </div>
           <div className="kpi">
             <div className="label">Venta neta</div>
-            <div className="value" style={{ fontSize: 17 }}>{soles(ventaNeta)}</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(netaVer)}</div>
           </div>
           <div className="kpi">
             <div className="label">Efectivo a entregar</div>
@@ -687,11 +703,11 @@ function Contenido() {
             <div className="label">Diferencia</div>
             <div
               className="value"
-              style={{ fontSize: 17, color: Math.abs(diferenciaDinero) < 0.01 ? "var(--ok)" : "var(--danger)" }}
+              style={{ fontSize: 17, color: Math.abs(difVer) < 0.01 ? "var(--ok)" : "var(--danger)" }}
             >
-              {soles(diferenciaDinero)}
+              {soles(difVer)}
             </div>
-            <div className="hint">cobrado {soles(cobrado)} − venta neta</div>
+            <div className="hint">cobrado {soles(cobradoVer)} − venta neta</div>
           </div>
         </div>
 
