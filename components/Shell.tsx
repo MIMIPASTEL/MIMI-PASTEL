@@ -10,6 +10,7 @@ const NAV = [
   { href: "/programacion", label: "Programar", ico: "🗓️", roles: ["admin", "produccion"] },
   { href: "/produccion", label: "Producción", ico: "🥣", roles: ["admin", "produccion"] },
   { href: "/ventas", label: "Ventas", ico: "🧾", roles: ["admin", "ventas"] },
+  { href: "/repartos", label: "Repartos", ico: "🛵", roles: ["admin", "ventas"] },
   { href: "/pedidos", label: "Pedidos", ico: "🎂", roles: ["admin", "ventas"] },
   { href: "/cierre", label: "Cierre", ico: "📊", roles: ["admin"] },
   { href: "/admin", label: "Ajustes", ico: "⚙️", roles: ["admin"] },
