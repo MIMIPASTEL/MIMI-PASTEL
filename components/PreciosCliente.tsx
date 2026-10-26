@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase, soles } from "@/lib/supabase";
@@ -68,7 +68,7 @@ export default function PreciosCliente() {
       { onConflict: "producto_id,presentacion_id,tipo_cliente" },
     );
     if (error) setErr(error.message);
-    else setMsg(`Guardado: ${f.producto} · ${f.presentacion} · ${tipo} = ${soles(precio)}`);
+    else setMsg(`Guardado: ${f.producto} Â· ${f.presentacion} Â· ${tipo} = ${soles(precio)}`);
   }
 
   return (
@@ -76,7 +76,7 @@ export default function PreciosCliente() {
       <h2>Precios por tipo de cliente</h2>
       <p className="sub" style={{ marginTop: -6 }}>
         Precio directo (cliente final) y precio distribuidor. Los queques y la torta de chocolate
-        tienen además tajada y molde entero.
+        tienen ademÃ¡s tajada y molde entero.
       </p>
 
       {err && <div className="alert err">{err}</div>}
@@ -87,7 +87,7 @@ export default function PreciosCliente() {
           <thead>
             <tr>
               <th>Producto</th>
-              <th>Presentación</th>
+              <th>PresentaciÃ³n</th>
               <th className="num">Directo</th>
               <th className="num">Distribuidor</th>
             </tr>
@@ -102,7 +102,7 @@ export default function PreciosCliente() {
                     className="input num"
                     type="number"
                     min="0"
-                    step="0.1"
+                    step="0.0001"
                     defaultValue={f.directo}
                     onBlur={(e) => guardar(f, "directo", e.target.value)}
                     style={{ width: 84, padding: "6px 8px" }}
@@ -113,7 +113,7 @@ export default function PreciosCliente() {
                     className="input num"
                     type="number"
                     min="0"
-                    step="0.1"
+                    step="0.0001"
                     defaultValue={f.distribuidor}
                     onBlur={(e) => guardar(f, "distribuidor", e.target.value)}
                     style={{ width: 84, padding: "6px 8px" }}
@@ -126,8 +126,8 @@ export default function PreciosCliente() {
       </div>
 
       <p className="sub" style={{ margin: "10px 4px 0", fontSize: 12 }}>
-        Se guarda al salir de cada casilla. En Pedidos el precio se carga solo según el tipo de
-        cliente y la presentación.
+        Se guarda al salir de cada casilla. En Pedidos el precio se carga solo segÃºn el tipo de
+        cliente y la presentaciÃ³n.
       </p>
     </div>
   );

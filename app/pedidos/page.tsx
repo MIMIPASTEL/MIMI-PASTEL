@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Shell, { usePerfil } from "@/components/Shell";
@@ -256,30 +256,30 @@ function Contenido() {
       .map((it) => {
         const nombre = it.productos?.nombre ?? nombres[it.producto_id] ?? "Producto";
         const subtotal = (Number(it.cantidad) * Number(it.precio_unitario ?? 0)).toFixed(2);
-        const lineas = [`🎂 ${nombre} × ${Number(it.cantidad)} — S/ ${subtotal}`];
-        if (it.tamano) lineas.push(`   🍰 Tamaño: ${it.tamano}`);
-        if (it.empaque) lineas.push(`   📦 Empaque: ${it.empaque}`);
-        if (it.nota) lineas.push(`   🖌️ Decoración: ${it.nota}`);
+        const lineas = [`ðŸŽ‚ ${nombre} Ã— ${Number(it.cantidad)} â€” S/ ${subtotal}`];
+        if (it.tamano) lineas.push(`   ðŸ° TamaÃ±o: ${it.tamano}`);
+        if (it.empaque) lineas.push(`   ðŸ“¦ Empaque: ${it.empaque}`);
+        if (it.nota) lineas.push(`   ðŸ–Œï¸ DecoraciÃ³n: ${it.nota}`);
         return lineas.join("\n");
       })
       .join("\n\n");
 
     const texto =
-      `🧁 *MIMI PASTEL*\n` +
-      `_Confirmación de pedido_\n\n` +
-      `¡Gracias por tu pedido! 💗\n` +
+      `ðŸ§ *MIMI PASTEL*\n` +
+      `_ConfirmaciÃ³n de pedido_\n\n` +
+      `Â¡Gracias por tu pedido! ðŸ’—\n` +
       `Nos alegra ser parte de tus momentos especiales.\n\n` +
-      `👤 *Cliente:* ${p.cliente}\n` +
-      `📅 *Entrega:* ${fecha}${hora ? " · " + hora : ""}\n` +
-      (p.lugar ? `📍 *Lugar:* ${p.lugar}\n` : "") +
-      `\n💗 *DETALLE DEL PEDIDO* 💗\n` +
-      `━━━━━━━━━━━━━━━\n` +
+      `ðŸ‘¤ *Cliente:* ${p.cliente}\n` +
+      `ðŸ“… *Entrega:* ${fecha}${hora ? " Â· " + hora : ""}\n` +
+      (p.lugar ? `ðŸ“ *Lugar:* ${p.lugar}\n` : "") +
+      `\nðŸ’— *DETALLE DEL PEDIDO* ðŸ’—\n` +
+      `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n` +
       `${detalle}\n` +
-      `━━━━━━━━━━━━━━━\n\n` +
-      `🧾 Total: *S/ ${total.toFixed(2)}*\n` +
-      `💵 Adelanto: S/ ${adelanto.toFixed(2)}\n` +
-      `❗ *SALDO PENDIENTE: S/ ${saldo.toFixed(2)}*\n\n` +
-      `Gracias por confiar en Mimi Pastel 💗\n` +
+      `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n` +
+      `ðŸ§¾ Total: *S/ ${total.toFixed(2)}*\n` +
+      `ðŸ’µ Adelanto: S/ ${adelanto.toFixed(2)}\n` +
+      `â— *SALDO PENDIENTE: S/ ${saldo.toFixed(2)}*\n\n` +
+      `Gracias por confiar en Mimi Pastel ðŸ’—\n` +
       `_Si no le gusta, no lo paga._`;
 
     const tel = (p.telefono ?? "").replace(/\D/g, "");
@@ -326,7 +326,7 @@ function Contenido() {
             <input className="input" value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nombre" />
           </div>
           <div className="field">
-            <label className="f">Teléfono</label>
+            <label className="f">TelÃ©fono</label>
             <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Opcional" />
           </div>
         </div>
@@ -345,7 +345,7 @@ function Contenido() {
             className="input"
             value={lugar}
             onChange={(e) => setLugar(e.target.value)}
-            placeholder="Dirección o referencia (ej. Av. Lima 245, frente al mercado)"
+            placeholder="DirecciÃ³n o referencia (ej. Av. Lima 245, frente al mercado)"
           />
         </div>
         <div className="grid grid-3">
@@ -360,7 +360,7 @@ function Contenido() {
           <div className="field">
             <label className="f">Canal</label>
             <select className="input" value={puntoId} onChange={(e) => setPuntoId(e.target.value)}>
-              <option value="">—</option>
+              <option value="">â€”</option>
               {puntos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo}
@@ -378,7 +378,7 @@ function Contenido() {
           >
             <div className="grid grid-3">
               <select className="input" value={l.producto_id} onChange={(e) => elegirProducto(i, e.target.value)}>
-                <option value="">Producto…</option>
+                <option value="">Productoâ€¦</option>
                 {productos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}
@@ -398,7 +398,7 @@ function Contenido() {
                 className="input num"
                 type="number"
                 min="0"
-                step="0.1"
+                step="0.0001"
                 placeholder="Precio unit."
                 value={l.precio}
                 onChange={(e) => setLinea(i, "precio", e.target.value)}
@@ -421,7 +421,7 @@ function Contenido() {
             <input
               className="input"
               style={{ marginTop: 8 }}
-              placeholder="Indicaciones: bañada en chantilly, rellena de fudge, dedicatoria…"
+              placeholder="Indicaciones: baÃ±ada en chantilly, rellena de fudge, dedicatoriaâ€¦"
               value={l.nota}
               onChange={(e) => setLinea(i, "nota", e.target.value)}
             />
@@ -431,7 +431,7 @@ function Contenido() {
               value={l.empaque}
               onChange={(e) => setLinea(i, "empaque", e.target.value)}
             >
-              <option value="">Empaque…</option>
+              <option value="">Empaqueâ€¦</option>
               <option value="caja">Caja</option>
               <option value="bolsa">Bolsa</option>
               <option value="bandeja">Bandeja</option>
@@ -464,7 +464,7 @@ function Contenido() {
           }}
         >
           <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            ¿Producto que no está en la lista? (bocaditos, tortas especiales…)
+            Â¿Producto que no estÃ¡ en la lista? (bocaditos, tortas especialesâ€¦)
           </span>
           <input
             className="input"
@@ -474,7 +474,7 @@ function Contenido() {
             onChange={(e) => setNuevoProducto(e.target.value)}
           />
           <button className="btn btn-sm" type="button" onClick={crearProductoRapido} disabled={creandoProd}>
-            {creandoProd ? "Creando…" : "Crear producto"}
+            {creandoProd ? "Creandoâ€¦" : "Crear producto"}
           </button>
         </div>
 
@@ -487,9 +487,9 @@ function Contenido() {
       </form>
 
       <div className="card">
-        <h2>Últimos pedidos</h2>
+        <h2>Ãšltimos pedidos</h2>
         {pedidos.length === 0 ? (
-          <p className="empty">Todavía no hay pedidos.</p>
+          <p className="empty">TodavÃ­a no hay pedidos.</p>
         ) : (
           pedidos.map((p) => (
             <PedidoDetalle
@@ -507,7 +507,7 @@ function Contenido() {
                   </button>
                   {p.estado !== "entregado" && p.estado !== "cancelado" && (
                     <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
-                      Sincronizar con producción
+                      Sincronizar con producciÃ³n
                     </button>
                   )}
                 </div>
@@ -523,12 +523,12 @@ function Contenido() {
           onClose={() => setEditando(null)}
           onSaved={() => {
             setEditando(null);
-            setMsg("Pedido actualizado y sincronizado con producción.");
+            setMsg("Pedido actualizado y sincronizado con producciÃ³n.");
             cargar();
           }}
           onDeleted={() => {
             setEditando(null);
-            setMsg("Pedido eliminado y retirado de producción.");
+            setMsg("Pedido eliminado y retirado de producciÃ³n.");
             cargar();
           }}
         />
