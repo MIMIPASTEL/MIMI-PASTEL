@@ -326,7 +326,7 @@ function Contenido() {
             <input className="input" value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nombre" />
           </div>
           <div className="field">
-            <label className="f">TelÃ©fono</label>
+            <label className="f">Teléfono</label>
             <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Opcional" />
           </div>
         </div>
@@ -345,7 +345,7 @@ function Contenido() {
             className="input"
             value={lugar}
             onChange={(e) => setLugar(e.target.value)}
-            placeholder="DirecciÃ³n o referencia (ej. Av. Lima 245, frente al mercado)"
+            placeholder="Dirección o referencia (ej. Av. Lima 245, frente al mercado)"
           />
         </div>
         <div className="grid grid-3">
@@ -360,7 +360,7 @@ function Contenido() {
           <div className="field">
             <label className="f">Canal</label>
             <select className="input" value={puntoId} onChange={(e) => setPuntoId(e.target.value)}>
-              <option value="">â€”</option>
+              <option value="">—</option>
               {puntos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo}
@@ -378,7 +378,7 @@ function Contenido() {
           >
             <div className="grid grid-3">
               <select className="input" value={l.producto_id} onChange={(e) => elegirProducto(i, e.target.value)}>
-                <option value="">Productoâ€¦</option>
+                <option value="">Producto…</option>
                 {productos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}
@@ -421,7 +421,7 @@ function Contenido() {
             <input
               className="input"
               style={{ marginTop: 8 }}
-              placeholder="Indicaciones: baÃ±ada en chantilly, rellena de fudge, dedicatoriaâ€¦"
+              placeholder="Indicaciones: bañada en chantilly, rellena de fudge, dedicatoria…"
               value={l.nota}
               onChange={(e) => setLinea(i, "nota", e.target.value)}
             />
@@ -431,7 +431,7 @@ function Contenido() {
               value={l.empaque}
               onChange={(e) => setLinea(i, "empaque", e.target.value)}
             >
-              <option value="">Empaqueâ€¦</option>
+              <option value="">Empaque…</option>
               <option value="caja">Caja</option>
               <option value="bolsa">Bolsa</option>
               <option value="bandeja">Bandeja</option>
@@ -464,7 +464,7 @@ function Contenido() {
           }}
         >
           <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            Â¿Producto que no estÃ¡ en la lista? (bocaditos, tortas especialesâ€¦)
+            ¿Producto que no está en la lista? (bocaditos, tortas especiales…)
           </span>
           <input
             className="input"
@@ -474,7 +474,7 @@ function Contenido() {
             onChange={(e) => setNuevoProducto(e.target.value)}
           />
           <button className="btn btn-sm" type="button" onClick={crearProductoRapido} disabled={creandoProd}>
-            {creandoProd ? "Creandoâ€¦" : "Crear producto"}
+            {creandoProd ? "Creando…" : "Crear producto"}
           </button>
         </div>
 
@@ -487,7 +487,7 @@ function Contenido() {
       </form>
 
       <div className="card">
-        <h2>Ãšltimos pedidos</h2>
+        <h2>Últimos pedidos</h2>
         {pedidos.length === 0 ? (
           <p className="empty">Todavía no hay pedidos.</p>
         ) : (
@@ -507,7 +507,7 @@ function Contenido() {
                   </button>
                   {p.estado !== "entregado" && p.estado !== "cancelado" && (
                     <button className="btn btn-sm" onClick={() => pasarAProduccion(p)}>
-                      Sincronizar con producciÃ³n
+                      Sincronizar con producción
                     </button>
                   )}
                 </div>
@@ -523,12 +523,12 @@ function Contenido() {
           onClose={() => setEditando(null)}
           onSaved={() => {
             setEditando(null);
-            setMsg("Pedido actualizado y sincronizado con producciÃ³n.");
+            setMsg("Pedido actualizado y sincronizado con producción.");
             cargar();
           }}
           onDeleted={() => {
             setEditando(null);
-            setMsg("Pedido eliminado y retirado de producciÃ³n.");
+            setMsg("Pedido eliminado y retirado de producción.");
             cargar();
           }}
         />
