@@ -10,7 +10,7 @@ import EditarPedido from "@/components/EditarPedido";
 
 type Prod = { id: string; nombre: string };
 type Punto = { id: string; codigo: string };
-type Linea = { producto_id: string; cantidad: string; precio: string; nota: string; empaque: string };
+type Linea = { producto_id: string; presentacion_id: string; cantidad: string; precio: string; nota: string; empaque: string };
 type Pedido = {
   id: string;
   cliente: string;
@@ -48,13 +48,15 @@ function Contenido() {
   const [telefono, setTelefono] = useState("");
   const [lugar, setLugar] = useState("");
   const [tipoCliente, setTipoCliente] = useState("directo");
+  const [presentaciones, setPresentaciones] = useState<any[]>([]);
+  const [preciosCli, setPreciosCli] = useState<any[]>([]);
   const [nuevoProducto, setNuevoProducto] = useState("");
   const [creandoProd, setCreandoProd] = useState(false);
   const [fecha, setFecha] = useState(hoyISO());
   const [hora, setHora] = useState("");
   const [puntoId, setPuntoId] = useState("");
   const [adelanto, setAdelanto] = useState("");
-  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
+  const [lineas, setLineas] = useState<Linea[]>([{ producto_id: "", presentacion_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
   const [draftListo, setDraftListo] = useState(false);
   const [editando, setEditando] = useState<any>(null);
 
@@ -70,6 +72,13 @@ function Contenido() {
     ]);
     setProductos((p.data ?? []) as Prod[]);
     setPuntos((pv.data ?? []) as Punto[]);
+
+    const [pes, prc] = await Promise.all([
+      supabase.from("presentaciones").select("id, producto_id, nombre, es_default, orden").order("orden"),
+      supabase.from("precios_cliente").select("presentacion_id, tipo_cliente, precio"),
+    ]);
+    setPresentaciones((pes.data ?? []) as any[]);
+    setPreciosCli((prc.data ?? []) as any[]);
     setPedidos((pe.data ?? []) as unknown as Pedido[]);
   }, []);
 
@@ -102,6 +111,52 @@ function Contenido() {
     );
     return () => clearTimeout(t);
   }, [draftListo, cliente, telefono, lugar, fecha, hora, puntoId, adelanto, lineas]);
+
+  const presentacionesDe = (prodId: string) =>
+    presentaciones.filter((x) => x.producto_id === prodId);
+
+  const precioDe = (presentacionId: string, tipo: string) => {
+    const row = preciosCli.find(
+      (x) => x.presentacion_id === presentacionId && x.tipo_cliente === tipo,
+    );
+    return row ? Number(row.precio) : 0;
+  };
+
+  function elegirProducto(i: number, prodId: string) {
+    const lista = presentacionesDe(prodId);
+    const def = lista.find((x) => x.es_default) ?? lista[0];
+    setLineas((l) =>
+      l.map((x, j) =>
+        j === i
+          ? {
+              ...x,
+              producto_id: prodId,
+              presentacion_id: def?.id ?? "",
+              precio: def ? String(precioDe(def.id, tipoCliente)) : "",
+            }
+          : x,
+      ),
+    );
+  }
+
+  function elegirPresentacion(i: number, presId: string) {
+    setLineas((l) =>
+      l.map((x, j) =>
+        j === i ? { ...x, presentacion_id: presId, precio: String(precioDe(presId, tipoCliente)) } : x,
+      ),
+    );
+  }
+
+  useEffect(() => {
+    setLineas((ls) =>
+      ls.map((l) =>
+        l.presentacion_id
+          ? { ...l, precio: String(precioDe(l.presentacion_id, tipoCliente)) }
+          : l,
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoCliente]);
 
   function setLinea(i: number, campo: keyof Linea, v: string) {
     setLineas((l) => l.map((x, j) => (j === i ? { ...x, [campo]: v } : x)));
@@ -154,6 +209,7 @@ function Contenido() {
       validas.map((l) => ({
         pedido_id: ped.id,
         producto_id: l.producto_id,
+        presentacion_id: l.presentacion_id || null,
         cantidad: Number(l.cantidad),
         precio_unitario: Number(l.precio || 0),
         nota: l.nota?.trim() ? l.nota.trim() : null,
@@ -171,7 +227,7 @@ function Contenido() {
     setTipoCliente("directo");
     setHora("");
     setAdelanto("");
-    setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
+    setLineas([{ producto_id: "", presentacion_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
     borrarBorrador("mip:pedido:nuevo");
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
@@ -321,7 +377,7 @@ function Contenido() {
             style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 10, marginBottom: 8 }}
           >
             <div className="grid grid-3">
-              <select className="input" value={l.producto_id} onChange={(e) => setLinea(i, "producto_id", e.target.value)}>
+              <select className="input" value={l.producto_id} onChange={(e) => elegirProducto(i, e.target.value)}>
                 <option value="">Producto…</option>
                 {productos.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -348,6 +404,20 @@ function Contenido() {
                 onChange={(e) => setLinea(i, "precio", e.target.value)}
               />
             </div>
+            {presentacionesDe(l.producto_id).length > 1 && (
+              <select
+                className="input"
+                style={{ marginTop: 8 }}
+                value={l.presentacion_id}
+                onChange={(e) => elegirPresentacion(i, e.target.value)}
+              >
+                {presentacionesDe(l.producto_id).map((pr) => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               className="input"
               style={{ marginTop: 8 }}
@@ -374,7 +444,7 @@ function Contenido() {
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => setLineas((l) => [...l, { producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }])}
+            onClick={() => setLineas((l) => [...l, { producto_id: "", presentacion_id: "", cantidad: "", precio: "", nota: "", empaque: "" }])}
           >
             + Agregar producto
           </button>
