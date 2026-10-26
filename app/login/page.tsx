@@ -13,7 +13,7 @@ export default function Login() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/hoy");
+      if (data.session) router.replace("/");
     });
   }, [router]);
 
@@ -31,7 +31,7 @@ export default function Login() {
       );
       return;
     }
-    router.replace("/hoy");
+    router.replace("/");
   }
 
   return (
