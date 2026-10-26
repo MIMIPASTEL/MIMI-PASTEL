@@ -2,16 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Shell, { usePerfil } from "@/components/Shell";
+import Shell from "@/components/Shell";
 import { supabase, hoyISO, soles, numero, fechaCorta } from "@/lib/supabase";
 
 type Fila = Record<string, any>;
-
-function SoloAdmin({ children }: { children: React.ReactNode }) {
-  const perfil = usePerfil();
-  if (perfil && perfil.rol !== "admin") return null;
-  return <>{children}</>;
-}
 
 export default function HoyPage() {
   return (
