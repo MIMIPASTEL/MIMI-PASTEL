@@ -117,6 +117,14 @@ export default function CajaPage() {
     cargar();
   }
 
+  async function eliminar(m: Mov) {
+    if (!confirm(`Eliminar ${m.tipo} de ${soles(Number(m.monto))} (${m.concepto ?? nombreCat(m.categoria_codigo)})?`)) return;
+    const { error } = await supabase.from("movimientos_caja").delete().eq("id", m.id);
+    if (error) return setErr(error.message);
+    setMsg("Movimiento eliminado.");
+    cargar();
+  }
+
   const catsTipo = cats.filter((c) => c.tipo === tipo);
 
   return (
@@ -268,7 +276,7 @@ export default function CajaPage() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th className="num">Monto</th></tr>
+                <tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th className="num">Monto</th><th></th></tr>
               </thead>
               <tbody>
                 {movs.map((m) => (
@@ -279,6 +287,16 @@ export default function CajaPage() {
                     <td>{m.concepto ?? "—"}</td>
                     <td className="num" style={{ color: m.tipo === "ingreso" ? "var(--ok)" : "var(--danger)" }}>
                       {soles(Number(m.monto))}
+                    </td>
+                    <td className="num">
+                      <button
+                        type="button"
+                        onClick={() => eliminar(m)}
+                        title="Eliminar movimiento"
+                        style={{ background: "none", border: 0, cursor: "pointer", color: "var(--danger)", fontWeight: 700 }}
+                      >
+                        Eliminar
+                      </button>
                     </td>
                   </tr>
                 ))}
