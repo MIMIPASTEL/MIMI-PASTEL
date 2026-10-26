@@ -74,7 +74,7 @@ function Contenido() {
     setPuntos((pv.data ?? []) as Punto[]);
 
     const [pes, prc] = await Promise.all([
-      supabase.from("presentaciones").select("id, producto_id, nombre, es_default, orden").order("orden"),
+      supabase.from("presentaciones").select("id, producto_id, nombre, es_default, orden").eq("activo", true).order("orden"),
       supabase.from("precios_cliente").select("presentacion_id, tipo_cliente, precio"),
     ]);
     setPresentaciones((pes.data ?? []) as any[]);

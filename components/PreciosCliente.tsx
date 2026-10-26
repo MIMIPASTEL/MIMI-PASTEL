@@ -22,7 +22,8 @@ export default function PreciosCliente() {
     const [pr, pc] = await Promise.all([
       supabase
         .from("presentaciones")
-        .select("id, nombre, orden, producto_id, productos(codigo, orden)")
+        .select("id, nombre, orden, producto_id, activo, productos(codigo, orden)")
+        .eq("activo", true)
         .order("orden"),
       supabase.from("precios_cliente").select("presentacion_id, tipo_cliente, precio"),
     ]);
