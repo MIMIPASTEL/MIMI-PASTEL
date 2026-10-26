@@ -47,6 +47,7 @@ function Contenido() {
   const [cliente, setCliente] = useState("");
   const [telefono, setTelefono] = useState("");
   const [lugar, setLugar] = useState("");
+  const [tipoCliente, setTipoCliente] = useState("directo");
   const [nuevoProducto, setNuevoProducto] = useState("");
   const [creandoProd, setCreandoProd] = useState(false);
   const [fecha, setFecha] = useState(hoyISO());
@@ -136,6 +137,7 @@ function Contenido() {
         cliente: cliente.trim(),
         telefono: telefono || null,
         lugar: lugar || null,
+        tipo_cliente: tipoCliente,
         fecha_entrega: fecha,
         hora_entrega: hora || null,
         punto_venta_id: puntoId || null,
@@ -166,6 +168,7 @@ function Contenido() {
     setCliente("");
     setTelefono("");
     setLugar("");
+    setTipoCliente("directo");
     setHora("");
     setAdelanto("");
     setLineas([{ producto_id: "", cantidad: "", precio: "", nota: "", empaque: "" }]);
@@ -270,6 +273,14 @@ function Contenido() {
             <label className="f">Teléfono</label>
             <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Opcional" />
           </div>
+        </div>
+
+        <div className="field">
+          <label className="f">Tipo de cliente</label>
+          <select className="input" value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value)}>
+            <option value="directo">Cliente directo</option>
+            <option value="distribuidor">Distribuidor</option>
+          </select>
         </div>
 
         <div className="field">

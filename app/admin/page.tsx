@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import RecetasAdmin from "@/components/RecetasAdmin";
 import RegistroProduccion from "@/components/RegistroProduccion";
 import CostosAdmin from "@/components/CostosAdmin";
+import PreciosCliente from "@/components/PreciosCliente";
 import InsumosProduccion from "@/components/InsumosProduccion";
 import { hoyISO } from "@/lib/supabase";
 import { supabase, soles } from "@/lib/supabase";
@@ -437,6 +438,8 @@ function Contenido() {
       <RecetasAdmin productos={productos} />
 
       <CostosAdmin />
+
+      <PreciosCliente />
 
       <RegistroProduccion productos={productos} />
 
