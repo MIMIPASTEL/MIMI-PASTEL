@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePerfil } from "@/components/Shell";
 import { supabase, soles, numero } from "@/lib/supabase";
 
 type Insumo = { id: string; nombre: string; unidad_base: string; precio_unitario: number };
@@ -25,11 +26,13 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [totalOperadores, setTotalOperadores] = useState<Record<string, number>>({});
+  const perfil = usePerfil();
 
   const cargar = useCallback(async () => {
     const [ins, con, sol, lot, rec] = await Promise.all([
       supabase.from("insumos").select("id, nombre, unidad_base, precio_unitario").eq("activo", true).order("nombre"),
-      supabase.from("consumos_dia").select("insumo_id, cantidad").eq("fecha", fecha),
+      supabase.from("consumos_dia").select("insumo_id, cantidad, operador_id").eq("fecha", fecha),
       supabase
         .from("solicitudes_insumo")
         .select("id, cantidad, nota, estado, fecha, nombre_libre, insumos(nombre)")
@@ -66,12 +69,17 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
     setSugerido(sug);
     setInsumos((ins.data ?? []) as Insumo[]);
     const m: Record<string, string> = {};
+    const tot: Record<string, number> = {};
     (con.data ?? []).forEach((c: any) => {
-      m[c.insumo_id] = String(Number(c.cantidad));
+      tot[c.insumo_id] = (tot[c.insumo_id] ?? 0) + Number(c.cantidad);
+      if (perfil?.id && c.operador_id === perfil.id) {
+        m[c.insumo_id] = String(Number(c.cantidad));
+      }
     });
     setCant(m);
+    setTotalOperadores(tot);
     setSolicitudes((sol.data ?? []) as unknown as Solicitud[]);
-  }, [fecha]);
+  }, [fecha, perfil?.id]);
 
   useEffect(() => {
     cargar();
@@ -89,6 +97,7 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
       .map((i) => ({
         fecha,
         insumo_id: i.id,
+        operador_id: perfil?.id ?? null,
         cantidad: Number(cant[i.id]),
         costo_unitario: Number(i.precio_unitario ?? 0),
       }));
@@ -98,7 +107,7 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
       return setErr("No hay cantidades para guardar.");
     }
 
-    const { error } = await supabase.from("consumos_dia").upsert(filas, { onConflict: "fecha,insumo_id" });
+    const { error } = await supabase.from("consumos_dia").upsert(filas, { onConflict: "fecha,insumo_id,operador_id" });
     setGuardando(false);
     if (error) return setErr(error.message);
     setMsg(`Consumo del día guardado · ${soles(totalDia)} en materiales.`);
@@ -147,7 +156,8 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
               <tr>
                 <th>Insumo</th>
                 <th className="num">Sugerido</th>
-                <th className="num">Cantidad</th>
+                <th className="num">Mi consumo</th>
+                <th className="num">Total del día</th>
                 <th className="num">Costo</th>
               </tr>
             </thead>
@@ -169,11 +179,12 @@ export default function InsumosProduccion({ fecha }: { fecha: string }) {
                       style={{ width: 80, padding: "6px 8px" }}
                     />
                   </td>
-                  <td className="num">{costo(i) > 0 ? soles(costo(i)) : ""}</td>
+                  <td className="num">{totalOperadores[i.id] ? `${numero(totalOperadores[i.id], 2)}` : "—"}</td>
+                <td className="num">{costo(i) > 0 ? soles(costo(i)) : ""}</td>
                 </tr>
               ))}
               <tr>
-                <td colSpan={3}><strong>Total del día</strong></td>
+                <td colSpan={4}><strong>Total del día</strong></td>
                 <td className="num"><strong>{soles(totalDia)}</strong></td>
               </tr>
             </tbody>
