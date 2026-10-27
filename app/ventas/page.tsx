@@ -57,6 +57,8 @@ function Contenido() {
   const [guardando, setGuardando] = useState(false);
   const [cierreData, setCierreData] = useState<any>(null);
   const [tocado, setTocado] = useState(false);
+  const [vendedoraId, setVendedoraId] = useState("");
+  const [vendedoras, setVendedoras] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -420,7 +422,8 @@ function Contenido() {
           punto_venta_id: puntoId,
           turno,
           usuario_id: perfil?.id,
-          total: ventaNeta,
+          vendedora_id: vendedoraId || null,
+        total: ventaNeta,
           descuento: descuentoPromo,
           promociones: Number(promoGrupos || 0),
         })
@@ -723,6 +726,15 @@ function Contenido() {
         <h2>Cierre de caja</h2>
 
         <div className="grid grid-3" style={{ marginTop: 12 }}>
+          <div className="field">
+            <label className="f">Vendedora</label>
+            <select className="input" value={vendedoraId} onChange={(e) => setVendedoraId(e.target.value)}>
+              <option value="">—</option>
+              {vendedoras.map((v) => (
+                <option key={v.id} value={v.id}>{v.nombre}</option>
+              ))}
+            </select>
+          </div>
           <div className="field">
             <label className="f">Efectivo</label>
             <input className="input num" type="number" min="0" step="0.1" value={efectivo} onChange={(e) => { setTocado(true); setEfectivo(e.target.value); }} placeholder="0.00" />

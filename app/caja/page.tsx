@@ -12,6 +12,7 @@ type Mov = {
   monto: number;
   medio: string;
   concepto: string | null;
+  punto_venta_id: string | null;
 };
 
 export default function CajaPage() {
@@ -19,6 +20,7 @@ export default function CajaPage() {
   const [movs, setMovs] = useState<Mov[]>([]);
   const [cats, setCats] = useState<any[]>([]);
   const [consumo, setConsumo] = useState(0);
+  const [puntos, setPuntos] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -39,7 +41,7 @@ export default function CajaPage() {
     const [mv, ct, cs, ins] = await Promise.all([
       supabase
         .from("movimientos_caja")
-        .select("id, fecha, tipo, categoria_codigo, monto, medio, concepto")
+        .select("id, fecha, tipo, categoria_codigo, monto, medio, concepto, punto_venta_id")
         .gte("fecha", desde)
         .lte("fecha", hasta)
         .order("fecha", { ascending: false }),
@@ -48,6 +50,8 @@ export default function CajaPage() {
       supabase.from("insumos").select("id, precio_unitario"),
     ]);
 
+    const { data: pv } = await supabase.from("puntos_venta").select("id, codigo");
+    setPuntos(pv ?? []);
     setMovs((mv.data ?? []) as Mov[]);
     setCats(ct.data ?? []);
 
@@ -306,12 +310,13 @@ export default function CajaPage() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th className="num">Monto</th><th></th></tr>
+                <tr><th>Fecha</th><th>Punto</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th className="num">Monto</th><th></th></tr>
               </thead>
               <tbody>
                 {movs.map((m) => (
                   <tr key={m.id}>
                     <td>{m.fecha}</td>
+                    <td>{puntos.find((x) => x.id === m.punto_venta_id)?.codigo ?? "—"}</td>
                     <td>{m.tipo === "ingreso" ? "Ingreso" : "Salida"}</td>
                     <td>{nombreCat(m.categoria_codigo)}</td>
                     <td>{m.concepto ?? "—"}</td>
