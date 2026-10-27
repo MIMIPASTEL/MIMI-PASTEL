@@ -29,6 +29,7 @@ export default function CajaPage() {
   const [monto, setMonto] = useState("");
   const [medio, setMedio] = useState("efectivo");
   const [concepto, setConcepto] = useState("");
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const [y, m] = mes.split("-").map(Number);
@@ -93,6 +94,25 @@ export default function CajaPage() {
     return cats.find((c) => c.codigo === codigo)?.nombre ?? codigo;
   }
 
+  function editar(m: Mov) {
+    setEditandoId(m.id);
+    setFecha(m.fecha);
+    setTipo(m.tipo);
+    setCategoria(m.categoria_codigo);
+    setMonto(String(Number(m.monto)));
+    setMedio(m.medio);
+    setConcepto(m.concepto ?? "");
+    setMsg(null);
+    setErr(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setMonto("");
+    setConcepto("");
+  }
+
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
@@ -101,19 +121,24 @@ export default function CajaPage() {
     if (valor <= 0) return setErr("Escribe el monto.");
 
     setGuardando(true);
-    const { error } = await supabase.from("movimientos_caja").insert({
+    const datos = {
       fecha,
       tipo,
       categoria_codigo: categoria,
       monto: valor,
       medio,
       concepto: concepto || null,
-    });
+    };
+
+    const { error } = editandoId
+      ? await supabase.from("movimientos_caja").update(datos).eq("id", editandoId)
+      : await supabase.from("movimientos_caja").insert(datos);
     setGuardando(false);
     if (error) return setErr(error.message);
     setMonto("");
     setConcepto("");
-    setMsg("Movimiento registrado.");
+    setMsg(editandoId ? "Movimiento actualizado." : "Movimiento registrado.");
+    setEditandoId(null);
     cargar();
   }
 
@@ -161,7 +186,7 @@ export default function CajaPage() {
       </div>
 
       <div className="card">
-        <h2>Registrar movimiento</h2>
+        <h2>{editandoId ? "Editar movimiento" : "Registrar movimiento"}</h2>
         {err && <div className="alert err">{err}</div>}
         {msg && <div className="alert ok">{msg}</div>}
         <form onSubmit={registrar}>
@@ -214,8 +239,13 @@ export default function CajaPage() {
             </div>
           </div>
 
+          {editandoId && (
+            <button type="button" className="btn btn-block" onClick={cancelarEdicion} style={{ marginBottom: 8 }}>
+              Cancelar edición
+            </button>
+          )}
           <button className="btn btn-primary btn-block" disabled={guardando}>
-            {guardando ? "Guardando…" : "Registrar"}
+            {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Registrar"}
           </button>
         </form>
       </div>
@@ -289,6 +319,13 @@ export default function CajaPage() {
                       {soles(Number(m.monto))}
                     </td>
                     <td className="num">
+                      <button
+                        type="button"
+                        onClick={() => editar(m)}
+                        style={{ background: "none", border: 0, cursor: "pointer", color: "var(--brand)", fontWeight: 700, marginRight: 10 }}
+                      >
+                        Editar
+                      </button>
                       <button
                         type="button"
                         onClick={() => eliminar(m)}
