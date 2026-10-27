@@ -92,7 +92,16 @@ export default function Despacho({
         .map((p) => ({ p, v: Number(celdas[clave(pv.id, p.id)] || 0) }))
         .filter((x) => x.v > 0);
 
-      if (items.length === 0) continue;
+      if (items.length === 0) {
+        const { data: previo } = await supabase
+          .from("despachos")
+          .select("id")
+          .eq("fecha", fecha)
+          .eq("punto_venta_id", pv.id)
+          .maybeSingle();
+        if (previo) await supabase.from("despacho_items").delete().eq("despacho_id", previo.id);
+        continue;
+      }
 
       const turno = pv.turno ?? 0;
       const { data: desp, error } = await supabase
@@ -110,14 +119,15 @@ export default function Despacho({
         return;
       }
 
-      const { error: e2 } = await supabase.from("despacho_items").upsert(
+      await supabase.from("despacho_items").delete().eq("despacho_id", desp.id);
+
+      const { error: e2 } = await supabase.from("despacho_items").insert(
         items.map((x) => ({
           despacho_id: desp.id,
           producto_id: x.p.id,
           cantidad_enviada: x.v,
           cantidad_stock: 0,
         })),
-        { onConflict: "despacho_id,producto_id" },
       );
       if (e2) {
         setErr(e2.message);
