@@ -228,6 +228,7 @@ export default function RepartosPage() {
         medio: "efectivo",
         concepto: etiqueta,
         referencia: ref,
+        aprobado: false,
       });
     if (Number(yape || 0) > 0)
       movimientos.push({
@@ -238,6 +239,7 @@ export default function RepartosPage() {
         medio: "yape",
         concepto: etiqueta,
         referencia: ref,
+        aprobado: false,
       });
     if (movimientos.length) await supabase.from("movimientos_caja").insert(movimientos);
 

@@ -59,6 +59,7 @@ export default function CobroPedido({
       medio,
       concepto: pagado > 0 ? "Saldo de pedido" : "Adelanto de pedido",
       referencia: `pedido:${pedidoId}`,
+      aprobado: false,
     });
 
     const nuevoPagado = pagado + valor;
