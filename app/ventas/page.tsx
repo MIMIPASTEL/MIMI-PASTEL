@@ -278,7 +278,9 @@ function Contenido() {
   }, [promo, promoGrupos, ventaBruta, filas]);
 
   const ventaNeta = ventaBruta - descuentoPromo;
-  const cobrado = Number(efectivo || 0) + Number(yape || 0) + Number(transferencia || 0);
+  const gastosTurno = Number(gasto || 0);
+  const efectivoBruto = Number(efectivo || 0) + gastosTurno;
+  const cobrado = efectivoBruto + Number(yape || 0) + Number(transferencia || 0);
   const diferenciaDinero = cobrado - ventaNeta;
 
   // si hay un cierre guardado y no se tocó nada, se muestra tal cual quedó
@@ -549,7 +551,7 @@ function Contenido() {
         unidades_contadas: filas.reduce((a, f) => a + (f.contado === "" ? 0 : Number(f.contado)), 0),
         dinero_esperado: ventaNeta,
         dinero_contado: cobrado,
-        efectivo: Number(efectivo || 0),
+        efectivo: efectivoBruto,
         yape: Number(yape || 0),
         transferencia: Number(transferencia || 0),
         gasto: Number(gasto || 0),
@@ -782,9 +784,9 @@ function Contenido() {
             <div className="value" style={{ fontSize: 17 }}>{soles(netaVer)}</div>
           </div>
           <div className="kpi">
-            <div className="label">Efectivo a entregar</div>
-            <div className="value" style={{ fontSize: 17 }}>{soles(Number(efectivo || 0) - Number(gasto || 0))}</div>
-            <div className="hint">efectivo − gasto {soles(Number(gasto || 0))}</div>
+            <div className="label">Efectivo recibido</div>
+            <div className="value" style={{ fontSize: 17 }}>{soles(Number(efectivo || 0))}</div>
+            <div className="hint">+ gastos {soles(gastosTurno)} = {soles(efectivoBruto)}</div>
           </div>
           <div className="kpi accent">
             <div className="label">Diferencia</div>
@@ -806,7 +808,7 @@ function Contenido() {
             <strong>Venta neta</strong> = bruta − promociones.<br />
             <strong>Cobrado</strong> = efectivo + Yape + transferencia.<br />
             <strong>Diferencia</strong> = cobrado − venta neta. Debe ser S/ 0.00.<br />
-            <strong>Efectivo a entregar</strong> = efectivo cobrado − gastos pagados de ese efectivo.
+            <strong>Efectivo</strong> = lo que recibes en mano, ya descontados los gastos. El sistema les suma los gastos para saber cuánto se cobró realmente.
           </p>
           <p className="sub" style={{ margin: "8px 0 0", fontSize: 12 }}>
             Si registras merma, baja el vendido y por lo tanto baja lo que deberías tener en caja: la
