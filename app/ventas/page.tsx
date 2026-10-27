@@ -43,6 +43,12 @@ function Contenido() {
   const [yape, setYape] = useState("");
   const [transferencia, setTransferencia] = useState("");
   const [gasto, setGasto] = useState("");
+  const [gasSalario, setGasSalario] = useState("");
+  const [gasChofer, setGasChofer] = useState("");
+  const [gasBolsas, setGasBolsas] = useState("");
+  const [gasPasaje, setGasPasaje] = useState("");
+  const [gasComidos, setGasComidos] = useState("");
+
   const [promoGrupos, setPromoGrupos] = useState("");
   const [promo, setPromo] = useState<any>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -246,6 +252,11 @@ function Contenido() {
   const ventaBruta = filas.reduce((a, f) => a + vendido(f) * de(f, "precio"), 0);
 
   // Descuento de promociones: usa el precio real de los productos que participan
+  useEffect(() => {
+    const t = Number(gasSalario || 0) + Number(gasChofer || 0) + Number(gasBolsas || 0) + Number(gasPasaje || 0) + Number(gasComidos || 0);
+    setGasto(t > 0 ? String(t) : "");
+  }, [gasSalario, gasChofer, gasBolsas, gasPasaje, gasComidos]);
+
   const descuentoPromo = useMemo(() => {
     const grupos = Number(promoGrupos || 0);
     if (!promo || grupos === 0 || ventaBruta <= 0) return 0;
@@ -453,18 +464,78 @@ function Contenido() {
       }
     }
 
-    // 6. gasto pagado con el efectivo
-    if (Number(gasto || 0) > 0) {
+    // 6. gastos clasificados del turno
+    const conceptosGasto = ["Salario vendedora", "Chofer", "Bolsas", "Pasaje", "Pasteles comidos"];
+    await supabase
+      .from("movimientos_caja")
+      .delete()
+      .eq("fecha", fecha)
+      .eq("punto_venta_id", puntoId)
+      .in("concepto", conceptosGasto);
+
+    if (Number(gasSalario || 0) > 0) {
       await supabase.from("movimientos_caja").insert({
         fecha,
-        tipo: "salida",
-        categoria_codigo: "movilidad",
-        monto: Number(gasto),
+        categoria_codigo: "planilla",
+        monto: Number(gasSalario),
         medio: "efectivo",
         turno,
-        concepto: "Gasto pagado del efectivo",
+        concepto: "Salario vendedora",
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
+        tipo: "salida",
+      });
+    }
+    if (Number(gasChofer || 0) > 0) {
+      await supabase.from("movimientos_caja").insert({
+        fecha,
+        categoria_codigo: "planilla",
+        monto: Number(gasChofer),
+        medio: "efectivo",
+        turno,
+        concepto: "Chofer",
+        punto_venta_id: puntoId,
+        creado_por: perfil?.id,
+        tipo: "salida",
+      });
+    }
+    if (Number(gasBolsas || 0) > 0) {
+      await supabase.from("movimientos_caja").insert({
+        fecha,
+        categoria_codigo: "gasto_negocio",
+        monto: Number(gasBolsas),
+        medio: "efectivo",
+        turno,
+        concepto: "Bolsas",
+        punto_venta_id: puntoId,
+        creado_por: perfil?.id,
+        tipo: "salida",
+      });
+    }
+    if (Number(gasPasaje || 0) > 0) {
+      await supabase.from("movimientos_caja").insert({
+        fecha,
+        categoria_codigo: "movilidad",
+        monto: Number(gasPasaje),
+        medio: "efectivo",
+        turno,
+        concepto: "Pasaje",
+        punto_venta_id: puntoId,
+        creado_por: perfil?.id,
+        tipo: "salida",
+      });
+    }
+    if (Number(gasComidos || 0) > 0) {
+      await supabase.from("movimientos_caja").insert({
+        fecha,
+        categoria_codigo: "otro_gasto",
+        monto: Number(gasComidos),
+        medio: "efectivo",
+        turno,
+        concepto: "Pasteles comidos",
+        punto_venta_id: puntoId,
+        creado_por: perfil?.id,
+        tipo: "salida",
       });
     }
 
@@ -675,8 +746,24 @@ function Contenido() {
             )}
           </div>
           <div className="field">
-            <label className="f">Gasto pagado del efectivo</label>
-            <input className="input num" type="number" min="0" step="0.1" value={gasto} onChange={(e) => { setTocado(true); setGasto(e.target.value); }} placeholder="0.00" />
+            <label className="f">Salario vendedora</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gasSalario} onChange={(e) => { setTocado(true); setGasSalario(e.target.value); }} placeholder="0.00" />
+          </div>
+          <div className="field">
+            <label className="f">Chofer</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gasChofer} onChange={(e) => { setTocado(true); setGasChofer(e.target.value); }} placeholder="0.00" />
+          </div>
+          <div className="field">
+            <label className="f">Bolsas</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gasBolsas} onChange={(e) => { setTocado(true); setGasBolsas(e.target.value); }} placeholder="0.00" />
+          </div>
+          <div className="field">
+            <label className="f">Pasaje</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gasPasaje} onChange={(e) => { setTocado(true); setGasPasaje(e.target.value); }} placeholder="0.00" />
+          </div>
+          <div className="field">
+            <label className="f">Pasteles comidos</label>
+            <input className="input num" type="number" min="0" step="0.1" value={gasComidos} onChange={(e) => { setTocado(true); setGasComidos(e.target.value); }} placeholder="0.00" />
           </div>
         </div>
 
