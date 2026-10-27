@@ -59,6 +59,8 @@ function Contenido() {
   const [tocado, setTocado] = useState(false);
   const [vendedoraId, setVendedoraId] = useState("");
   const [vendedoras, setVendedoras] = useState<any[]>([]);
+  const [cierreAprobado, setCierreAprobado] = useState(false);
+  const esAdmin = perfil?.rol === "admin";
 
   useEffect(() => {
     (async () => {
@@ -215,6 +217,13 @@ function Contenido() {
       mermaMap[m.producto_id] = (mermaMap[m.producto_id] ?? 0) + Number(m.cantidad);
     });
 
+    const { count: aprobados } = await supabase
+      .from("movimientos_caja")
+      .select("id", { count: "exact", head: true })
+      .eq("referencia", `turno:${fecha}:${puntoId}:${turno}`)
+      .eq("aprobado", true);
+    setCierreAprobado((aprobados ?? 0) > 0);
+
     setFilas(
       productos.map((p) => ({
         producto_id: p.id,
@@ -296,6 +305,8 @@ function Contenido() {
   const difVer = cobradoVer - netaVer;
 
   // Guarda solo el conteo del turno: lo recibido, la merma y los sobrantes.
+  const sinPermiso = cierreAprobado && !esAdmin;
+
   async function guardarConteo(): Promise<boolean> {
     if (!puntoId) return false;
     const punto = puntos.find((p) => p.id === puntoId)!;
@@ -775,7 +786,7 @@ function Contenido() {
         )}
 
         <div style={{ marginTop: 10 }}>
-          <button className="btn" onClick={soloConteo} disabled={guardando}>
+          <button className="btn" onClick={soloConteo} disabled={guardando || sinPermiso}>
             {guardando ? "Guardando…" : "Guardar conteo"}
           </button>
         </div>
@@ -887,7 +898,7 @@ function Contenido() {
           </p>
         </div>
 
-        <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={guardar} disabled={guardando}>
+        <button className="btn btn-primary btn-block" style={{ marginTop: 14 }} onClick={guardar} disabled={guardando || sinPermiso}>
           {guardando ? "Guardando…" : "Cerrar turno"}
         </button>
       </div>
