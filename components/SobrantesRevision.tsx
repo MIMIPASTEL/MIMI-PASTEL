@@ -42,13 +42,22 @@ export default function SobrantesRevision({
   const [guardando, setGuardando] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [sob, prods] = await Promise.all([
+    const [sob, prods, pts] = await Promise.all([
       supabase
         .from("sobrantes")
         .select("id, punto_venta_id, producto_id, cantidad, cantidad_reutilizable, lotes_produccion(fecha)")
         .eq("fecha", ayer),
       supabase.from("productos").select("id, dias_vida"),
+      supabase.from("puntos_venta").select("id, codigo, turno, tipo").eq("tipo", "maxiahorro"),
     ]);
+
+    const listaPuntos = ((pts.data ?? []) as any[]).filter((x) => x.tipo === "maxiahorro");
+    const maxTurno = listaPuntos.reduce((a, x) => Math.max(a, Number(x.turno ?? 0)), 0);
+    const ultimoPunto = listaPuntos.find((x) => Number(x.turno ?? 0) === maxTurno)?.id ?? null;
+
+    const soloUltimo = ((sob.data ?? []) as any[]).filter(
+      (x) => !ultimoPunto || x.punto_venta_id === ultimoPunto,
+    );
 
     const vida: Record<string, number> = {};
     ((prods.data ?? []) as any[]).forEach((p) => {
@@ -58,7 +67,7 @@ export default function SobrantesRevision({
     const hoy = new Date(fecha + "T12:00:00").getTime();
 
     setFilas(
-      ((sob.data ?? []) as any[]).map((s) => {
+      soloUltimo.map((s) => {
         const fProd = s.lotes_produccion?.fecha;
         const dias = fProd
           ? Math.floor((hoy - new Date(fProd + "T12:00:00").getTime()) / 86400000)
