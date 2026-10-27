@@ -13,6 +13,7 @@ type Mov = {
   medio: string;
   concepto: string | null;
   punto_venta_id: string | null;
+  aprobado: boolean;
 };
 
 export default function CajaPage() {
@@ -41,7 +42,7 @@ export default function CajaPage() {
     const [mv, ct, cs, ins] = await Promise.all([
       supabase
         .from("movimientos_caja")
-        .select("id, fecha, tipo, categoria_codigo, monto, medio, concepto, punto_venta_id")
+        .select("id, fecha, tipo, categoria_codigo, monto, medio, concepto, punto_venta_id, aprobado")
         .gte("fecha", desde)
         .lte("fecha", hasta)
         .order("fecha", { ascending: false }),
@@ -68,17 +69,20 @@ export default function CajaPage() {
     cargar();
   }, [cargar]);
 
+  const aprobados = useMemo(() => movs.filter((m) => m.aprobado), [movs]);
+  const pendientes = useMemo(() => movs.filter((m) => !m.aprobado), [movs]);
+
   const ingresos = useMemo(
-    () => movs.filter((m) => m.tipo === "ingreso").reduce((a, m) => a + Number(m.monto), 0),
+    () => aprobados.filter((m) => m.tipo === "ingreso").reduce((a, m) => a + Number(m.monto), 0),
     [movs],
   );
   const salidas = useMemo(
-    () => movs.filter((m) => m.tipo === "salida").reduce((a, m) => a + Number(m.monto), 0),
+    () => aprobados.filter((m) => m.tipo === "salida").reduce((a, m) => a + Number(m.monto), 0),
     [movs],
   );
   const comprasInsumos = useMemo(
     () =>
-      movs
+      aprobados
         .filter((m) => m.tipo === "salida" && m.categoria_codigo === "compra_insumo")
         .reduce((a, m) => a + Number(m.monto), 0),
     [movs],
@@ -143,6 +147,22 @@ export default function CajaPage() {
     setConcepto("");
     setMsg(editandoId ? "Movimiento actualizado." : "Movimiento registrado.");
     setEditandoId(null);
+    cargar();
+  }
+
+  async function aprobarTodo() {
+    if (pendientes.length === 0) return;
+    if (!confirm(`Aprobar ${pendientes.length} movimientos y enviarlos a caja?`)) return;
+    const ids = pendientes.map((m) => m.id);
+    const { error } = await supabase.from("movimientos_caja").update({ aprobado: true }).in("id", ids);
+    if (error) return setErr(error.message);
+    setMsg(`${ids.length} movimientos aprobados.`);
+    cargar();
+  }
+
+  async function aprobarUno(m: Mov) {
+    const { error } = await supabase.from("movimientos_caja").update({ aprobado: true }).eq("id", m.id);
+    if (error) return setErr(error.message);
     cargar();
   }
 
@@ -303,9 +323,49 @@ export default function CajaPage() {
       </div>
 
       <div className="card">
+        <h2>Pendientes de aprobación</h2>
+        {pendientes.length === 0 ? (
+          <p className="empty">No hay movimientos por aprobar.</p>
+        ) : (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Fecha</th><th>Punto</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th className="num">Monto</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {pendientes.map((m) => (
+                    <tr key={m.id}>
+                      <td>{m.fecha}</td>
+                      <td>{puntos.find((x) => x.id === m.punto_venta_id)?.codigo ?? "—"}</td>
+                      <td>{m.tipo === "ingreso" ? "Ingreso" : "Salida"}</td>
+                      <td>{nombreCat(m.categoria_codigo)}</td>
+                      <td>{m.concepto ?? "—"}</td>
+                      <td className="num">{soles(Number(m.monto))}</td>
+                      <td className="num">
+                        <button type="button" onClick={() => aprobarUno(m)} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--brand)", fontWeight: 700 }}>
+                          Aprobar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button className="btn btn-sm" style={{ marginTop: 10 }} onClick={aprobarTodo}>
+              Aprobar todo ({pendientes.length})
+            </button>
+          </>
+        )}
+        <p className="sub" style={{ margin: "10px 4px 0", fontSize: 12 }}>
+          Mientras no se aprueben, estos movimientos no afectan los totales de caja.
+        </p>
+      </div>
+
+      <div className="card">
         <h2>Movimientos del mes</h2>
-        {movs.length === 0 ? (
-          <p className="empty">Sin movimientos.</p>
+        {aprobados.length === 0 ? (
+          <p className="empty">Sin movimientos aprobados.</p>
         ) : (
           <div className="table-wrap">
             <table>
@@ -313,7 +373,7 @@ export default function CajaPage() {
                 <tr><th>Fecha</th><th>Punto</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th className="num">Monto</th><th></th></tr>
               </thead>
               <tbody>
-                {movs.map((m) => (
+                {aprobados.map((m) => (
                   <tr key={m.id}>
                     <td>{m.fecha}</td>
                     <td>{puntos.find((x) => x.id === m.punto_venta_id)?.codigo ?? "—"}</td>

@@ -489,6 +489,7 @@ function Contenido() {
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
         tipo: "salida",
+        aprobado: false,
       });
     }
     if (Number(gasChofer || 0) > 0) {
@@ -502,6 +503,7 @@ function Contenido() {
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
         tipo: "salida",
+        aprobado: false,
       });
     }
     if (Number(gasBolsas || 0) > 0) {
@@ -515,6 +517,7 @@ function Contenido() {
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
         tipo: "salida",
+        aprobado: false,
       });
     }
     if (Number(gasPasaje || 0) > 0) {
@@ -528,6 +531,7 @@ function Contenido() {
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
         tipo: "salida",
+        aprobado: false,
       });
     }
     if (Number(gasComidos || 0) > 0) {
@@ -541,6 +545,7 @@ function Contenido() {
         punto_venta_id: puntoId,
         creado_por: perfil?.id,
         tipo: "salida",
+        aprobado: false,
       });
     }
 
@@ -563,6 +568,7 @@ function Contenido() {
         concepto: `Venta ${codigoPunto}`.trim(),
         referencia: refTurno,
         creado_por: perfil?.id,
+        aprobado: false,
       });
 
     if (Number(yape || 0) > 0)
@@ -577,6 +583,7 @@ function Contenido() {
         concepto: `Venta ${codigoPunto}`.trim(),
         referencia: refTurno,
         creado_por: perfil?.id,
+        aprobado: false,
       });
 
     if (Number(transferencia || 0) > 0)
@@ -591,6 +598,7 @@ function Contenido() {
         concepto: `Venta ${codigoPunto}`.trim(),
         referencia: refTurno,
         creado_por: perfil?.id,
+        aprobado: false,
       });
 
     if (ingresosTurno.length) await supabase.from("movimientos_caja").insert(ingresosTurno);
