@@ -36,7 +36,7 @@ export default function ParrillaPrograma({
         .select("id, cliente, pedido_items(producto_id, cantidad)")
         .eq("fecha_entrega", fecha)
         .neq("estado", "cancelado"),
-      supabase.from("sobrantes").select("producto_id, cantidad, cantidad_reutilizable").eq("fecha", restarDia(fecha)),
+      supabase.from("sobrantes").select("producto_id, punto_venta_id, cantidad, cantidad_reutilizable").eq("fecha", restarDia(fecha)),
       supabase.from("puntos_omitidos").select("punto_venta_id").eq("fecha", fecha),
     ]);
 
@@ -57,8 +57,16 @@ export default function ParrillaPrograma({
     setCeldas(m);
     setPedidos((ped.data ?? []) as any[]);
 
+    const { data: pts } = await supabase
+      .from("puntos_venta")
+      .select("id, turno, tipo")
+      .eq("tipo", "maxiahorro");
+    const maxTurno = ((pts ?? []) as any[]).reduce((a, x) => Math.max(a, Number(x.turno ?? 0)), 0);
+    const ultimo = ((pts ?? []) as any[]).find((x) => Number(x.turno ?? 0) === maxTurno)?.id ?? null;
+
     const sm: Record<string, number> = {};
     ((sug.data ?? []) as any[]).forEach((x) => {
+      if (ultimo && x.punto_venta_id !== ultimo) return;
       const util = x.cantidad_reutilizable === null ? Number(x.cantidad) : Number(x.cantidad_reutilizable);
       sm[x.producto_id] = (sm[x.producto_id] ?? 0) + util;
     });

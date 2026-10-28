@@ -522,6 +522,11 @@ function Contenido() {
                     })
                     .join(" \u00b7 ")}
                 </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <button className="btn btn-sm" onClick={() => setEditando(p)}>
+                    Editar pedido
+                  </button>
+                </div>
                 <CobroPedido pedidoId={p.id} totalPedido={total} onSaved={cargar} />
               </div>
             );
