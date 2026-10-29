@@ -21,6 +21,8 @@ export default function RepartosPage() {
   const [guardando, setGuardando] = useState(false);
   const [saldos, setSaldos] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [devueltos, setDevueltos] = useState<Record<string, string>>({});
+  const [destinoDev, setDestinoDev] = useState<"revender" | "descartar">("revender");
 
   const cargarPuntos = useCallback(async () => {
     const { data } = await supabase
@@ -188,8 +190,13 @@ export default function RepartosPage() {
   }, [fecha, puntoId]);
 
   const bruto = useMemo(
-    () => filas.reduce((a, f) => a + f.cantidad * Number(f.precio || 0), 0),
-    [filas],
+    () =>
+      filas.reduce(
+        (a, f) =>
+          a + Math.max(0, f.cantidad - Number(devueltos[f.producto_id] || 0)) * Number(f.precio || 0),
+        0,
+      ),
+    [filas, devueltos],
   );
   const desc = Number(descuento || 0);
   const total = Math.max(0, bruto - desc);
@@ -218,13 +225,45 @@ export default function RepartosPage() {
     }
 
     await supabase.from("venta_items").insert(
-      filas.map((f) => ({
-        venta_id: venta.id,
-        producto_id: f.producto_id,
-        cantidad: f.cantidad,
-        precio_unitario: Number(f.precio),
-      })),
+      filas
+        .map((f) => ({
+          venta_id: venta.id,
+          producto_id: f.producto_id,
+          cantidad: Math.max(0, f.cantidad - Number(devueltos[f.producto_id] || 0)),
+          precio_unitario: Number(f.precio),
+        }))
+        .filter((x) => x.cantidad > 0),
     );
+
+    // devoluciones: se revenden (sobrante) o se descartan (merma)
+    const devs = filas.filter((f) => Number(devueltos[f.producto_id] || 0) > 0);
+    if (devs.length) {
+      await supabase.from("sobrantes").delete().eq("fecha", fecha).eq("punto_venta_id", puntoId);
+      await supabase.from("mermas").delete().eq("fecha", fecha).eq("punto_venta_id", puntoId).eq("tipo", "devolucion");
+
+      if (destinoDev === "revender") {
+        await supabase.from("sobrantes").insert(
+          devs.map((f) => ({
+            fecha,
+            punto_venta_id: puntoId,
+            producto_id: f.producto_id,
+            cantidad: Number(devueltos[f.producto_id]),
+            cantidad_reutilizable: Number(devueltos[f.producto_id]),
+          })),
+        );
+      } else {
+        await supabase.from("mermas").insert(
+          devs.map((f) => ({
+            fecha,
+            punto_venta_id: puntoId,
+            producto_id: f.producto_id,
+            cantidad: Number(devueltos[f.producto_id]),
+            tipo: "devolucion",
+            nota: "Producto devuelto por el cliente",
+          })),
+        );
+      }
+    }
 
     const pagos: any[] = [];
     if (Number(efectivo || 0) > 0)
@@ -310,7 +349,8 @@ export default function RepartosPage() {
                 <tr>
                   <th>Producto</th>
                   <th className="num">Precio</th>
-                  <th className="num">Cantidad</th>
+                  <th className="num">Enviado</th>
+                  <th className="num">Devuelto</th>
                   <th className="num">Subtotal</th>
                 </tr>
               </thead>
@@ -320,7 +360,25 @@ export default function RepartosPage() {
                     <td><strong>{f.codigo}</strong></td>
                     <td className="num">{soles(Number(f.precio))}</td>
                     <td className="num"><strong>{f.cantidad}</strong></td>
-                    <td className="num">{soles(f.cantidad * Number(f.precio))}</td>
+                    <td className="num">
+                      <input
+                        className="input num"
+                        type="number"
+                        min="0"
+                        step="1"
+                        style={{ width: 70 }}
+                        value={devueltos[f.producto_id] ?? ""}
+                        onChange={(e) =>
+                          setDevueltos((d) => ({ ...d, [f.producto_id]: e.target.value }))
+                        }
+                      />
+                    </td>
+                    <td className="num">
+                      {soles(
+                        Math.max(0, f.cantidad - Number(devueltos[f.producto_id] || 0)) *
+                          Number(f.precio),
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -367,6 +425,18 @@ export default function RepartosPage() {
               </div>
               <div className="hint">total − efectivo − yape</div>
             </div>
+          </div>
+
+          <div className="field" style={{ marginTop: 8 }}>
+            <label className="f">¿Qué se hace con lo devuelto?</label>
+            <select
+              className="input"
+              value={destinoDev}
+              onChange={(e) => setDestinoDev(e.target.value as any)}
+            >
+              <option value="revender">Se revende (vuelve al stock)</option>
+              <option value="descartar">Se descarta (merma)</option>
+            </select>
           </div>
 
           <button className="btn btn-primary btn-block" onClick={guardar} disabled={guardando} style={{ marginTop: 10 }}>
