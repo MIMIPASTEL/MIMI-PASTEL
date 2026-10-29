@@ -194,6 +194,30 @@ function Contenido() {
       setPromoGrupos(Number(cierre.promociones) ? String(cierre.promociones) : "");
     }
 
+    // recuperar los gastos clasificados del turno
+    const { data: gastosMov } = await supabase
+      .from("movimientos_caja")
+      .select("concepto, monto")
+      .eq("fecha", fecha)
+      .eq("punto_venta_id", puntoId)
+      .eq("turno", turno);
+
+    const g: Record<string, number> = {};
+    ((gastosMov ?? []) as any[]).forEach((x) => {
+      g[x.concepto] = (g[x.concepto] ?? 0) + Number(x.monto);
+    });
+    setGasSalario(g["Salario vendedora"] ? String(g["Salario vendedora"]) : "");
+    setGasChofer(g["Chofer"] ? String(g["Chofer"]) : "");
+    setGasBolsas(g["Bolsas"] ? String(g["Bolsas"]) : "");
+    setGasPasaje(g["Pasaje"] ? String(g["Pasaje"]) : "");
+    setGasComidos(g["Pasteles comidos"] ? String(g["Pasteles comidos"]) : "");
+
+    if (cierre) {
+      const totalG = Object.values(g).reduce((a, b) => a + b, 0);
+      const neto = Number(cierre.efectivo) - totalG;
+      setEfectivo(neto > 0 ? String(neto) : "");
+    }
+
     const porMedio: Record<string, number> = {};
     ((pg.data ?? []) as any[]).forEach((x) => {
       porMedio[x.medio] = (porMedio[x.medio] ?? 0) + Number(x.monto);
