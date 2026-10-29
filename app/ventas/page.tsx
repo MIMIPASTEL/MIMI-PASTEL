@@ -469,6 +469,8 @@ function Contenido() {
       { medio: "transferencia", monto: Number(transferencia || 0) },
     ].filter((p) => p.monto > 0);
 
+    await supabase.from("pagos").delete().eq("fecha", fecha).eq("punto_venta_id", puntoId);
+
     if (pagos.length > 0) {
       const { error } = await supabase.from("pagos").insert(
         pagos.map((p) => ({ venta_id: ventaId, punto_venta_id: puntoId, fecha, medio: p.medio, monto: p.monto })),
