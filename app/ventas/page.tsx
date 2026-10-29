@@ -200,7 +200,9 @@ function Contenido() {
       .select("concepto, monto")
       .eq("fecha", fecha)
       .eq("punto_venta_id", puntoId)
-      .eq("turno", turno);
+      .eq("turno", turno)
+      .eq("tipo", "salida")
+      .in("concepto", ["Salario vendedora", "Chofer", "Bolsas", "Pasaje", "Pasteles comidos"]);
 
     const g: Record<string, number> = {};
     ((gastosMov ?? []) as any[]).forEach((x) => {
