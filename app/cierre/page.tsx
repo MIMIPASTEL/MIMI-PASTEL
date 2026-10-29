@@ -39,6 +39,7 @@ function Contenido() {
   const [cargando, setCargando] = useState(true);
   const [sobrantesDia, setSobrantesDia] = useState<any[]>([]);
   const [prodNombres, setProdNombres] = useState<Record<string, string>>({});
+  const [resumen, setResumen] = useState<any[]>([]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -51,6 +52,53 @@ function Contenido() {
         .eq("fecha", fecha),
       supabase.from("productos").select("id, codigo"),
     ]);
+    // resumen por turno: disponible, vendido, sobrante, merma
+    const [desp, vts, sob, mer, pvs] = await Promise.all([
+      supabase.from("despachos").select("punto_venta_id, turno, despacho_items(cantidad_enviada, cantidad_recibida)").eq("fecha", fecha),
+      supabase.from("ventas").select("punto_venta_id, turno, venta_items(cantidad)").eq("fecha", fecha),
+      supabase.from("sobrantes").select("punto_venta_id, cantidad").eq("fecha", fecha),
+      supabase.from("mermas").select("punto_venta_id, cantidad").eq("fecha", fecha),
+      supabase.from("puntos_venta").select("id, codigo, turno"),
+    ]);
+
+    const acum: Record<string, any> = {};
+    const criterio = (punto: string | null, turno: any) => `${punto}|${turno ?? ""}`;
+
+    ((desp.data ?? []) as any[]).forEach((d) => {
+      const k = criterio(d.punto_venta_id, d.turno);
+      acum[k] = acum[k] ?? { punto: d.punto_venta_id, turno: d.turno, disponible: 0, vendido: 0, sobrante: 0, merma: 0 };
+      ((d.despacho_items ?? []) as any[]).forEach((it) => {
+        acum[k].disponible += Number(it.cantidad_recibida ?? it.cantidad_enviada ?? 0);
+      });
+    });
+
+    ((vts.data ?? []) as any[]).forEach((v) => {
+      const k = criterio(v.punto_venta_id, v.turno);
+      acum[k] = acum[k] ?? { punto: v.punto_venta_id, turno: v.turno, disponible: 0, vendido: 0, sobrante: 0, merma: 0 };
+      ((v.venta_items ?? []) as any[]).forEach((it) => {
+        acum[k].vendido += Number(it.cantidad);
+      });
+    });
+
+    ((sob.data ?? []) as any[]).forEach((x) => {
+      Object.keys(acum).forEach((k) => {
+        if (acum[k].punto === x.punto_venta_id) acum[k].sobrante += Number(x.cantidad);
+      });
+    });
+
+    ((mer.data ?? []) as any[]).forEach((x) => {
+      Object.keys(acum).forEach((k) => {
+        if (acum[k].punto === x.punto_venta_id) acum[k].merma += Number(x.cantidad);
+      });
+    });
+
+    const nombres: Record<string, string> = {};
+    ((pvs.data ?? []) as any[]).forEach((x) => (nombres[x.id] = x.codigo));
+
+    setResumen(
+      Object.values(acum).map((r: any) => ({ ...r, codigo: nombres[r.punto] ?? "—" })),
+    );
+
     setPuntos((pv.data ?? []) as Punto[]);
     setFilas((ci.data ?? []) as Fila[]);
     setSobrantesDia((sb.data ?? []) as any[]);
@@ -126,6 +174,45 @@ function Contenido() {
           <div className="value">{soles(total("efectivo_a_entregar"))}</div>
           <div className="hint">después de gastos {soles(total("gastos"))}</div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>Resumen por turno · {fechaCorta(fecha)}</h2>
+        {resumen.length === 0 ? (
+          <p className="empty">Sin datos de turnos para esta fecha.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Punto</th>
+                  <th>Turno</th>
+                  <th className="num">Disponible</th>
+                  <th className="num">Vendido</th>
+                  <th className="num">Sobrante</th>
+                  <th className="num">Merma</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumen
+                  .sort((a: any, b: any) => String(a.codigo).localeCompare(String(b.codigo)))
+                  .map((r: any, i: number) => (
+                    <tr key={i}>
+                      <td><strong>{r.codigo}</strong></td>
+                      <td>{r.turno ?? "—"}</td>
+                      <td className="num">{numero(r.disponible)}</td>
+                      <td className="num">{numero(r.vendido)}</td>
+                      <td className="num">{numero(r.sobrante)}</td>
+                      <td className="num">{numero(r.merma)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="sub" style={{ margin: "10px 4px 0", fontSize: 12 }}>
+          Disponible = lo contado al recibir. Vendido = unidades cobradas. Sobrante y merma del cierre.
+        </p>
       </div>
 
       <div className="card">
