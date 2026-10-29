@@ -49,6 +49,7 @@ function Contenido() {
   const [telefono, setTelefono] = useState("");
   const [lugar, setLugar] = useState("");
   const [tipoCliente, setTipoCliente] = useState("directo");
+  const [nuevoReparto, setNuevoReparto] = useState("");
   const [presentaciones, setPresentaciones] = useState<any[]>([]);
   const [preciosCli, setPreciosCli] = useState<any[]>([]);
   const [nuevoProducto, setNuevoProducto] = useState("");
@@ -233,6 +234,26 @@ function Contenido() {
     if (!sync.error) setMsg("Pedido registrado y agregado a Programar.");
     cargar();
   }
+
+  async function crearReparto() {
+    const nombre = nuevoReparto.trim();
+    if (!nombre) return;
+    const codigo = nombre
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 20);
+    const { error } = await supabase
+      .from("puntos_venta")
+      .insert({ codigo, nombre, tipo: "repartos", es_fijo: true });
+    if (error) return setErr(error.message);
+    setNuevoReparto("");
+    setMsg(codigo + " agregado como cliente fijo de reparto.");
+    cargar();
+  }
+
 
   function enviarWhatsapp(p: Pedido) {
     const items = (p.pedido_items ?? []) as any[];
@@ -488,6 +509,25 @@ function Contenido() {
       </form>
 
       <div className="card">
+        <h2>Nuevo cliente de reparto</h2>
+        <p className="sub" style={{ marginTop: -6 }}>
+          Para clientes que quieren volverse fijos (tiendas, colegios). Queda en Programar y Repartos.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 180 }}
+            placeholder="Nombre del cliente (ej. Panadería Lucero)"
+            value={nuevoReparto}
+            onChange={(e) => setNuevoReparto(e.target.value)}
+          />
+          <button className="btn btn-sm btn-primary" type="button" onClick={crearReparto}>
+            Agregar
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
         <h2>Entregas de hoy</h2>
         {(() => {
           const hoy = new Date().toISOString().slice(0, 10);
@@ -532,6 +572,25 @@ function Contenido() {
             );
           });
         })()}
+      </div>
+
+      <div className="card">
+        <h2>Nuevo cliente fijo de reparto</h2>
+        <p className="sub" style={{ marginTop: -6 }}>
+          Para clientes que quieren volverse fijos (tiendas, colegios). Queda en Programar y Repartos.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 180 }}
+            placeholder="Nombre del cliente (ej. Panaderia Lucero)"
+            value={nuevoReparto}
+            onChange={(e) => setNuevoReparto(e.target.value)}
+          />
+          <button className="btn btn-sm btn-primary" type="button" onClick={crearReparto}>
+            Agregar
+          </button>
+        </div>
       </div>
 
       <div className="card">
