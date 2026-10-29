@@ -8,6 +8,7 @@ import ParrillaPrograma from "@/components/ParrillaPrograma";
 import Despacho from "@/components/Despacho";
 import MermasResumen from "@/components/MermasResumen";
 import InsumosProduccion from "@/components/InsumosProduccion";
+import EnvioPedidos from "@/components/EnvioPedidos";
 
 type Prod = { id: string; codigo?: string | null; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string; es_fijo: boolean; turno: number | null };
@@ -74,6 +75,8 @@ function Contenido() {
       <ParrillaPrograma key={v} fecha={fecha} productos={productos} puntos={puntos} />
 
       <Despacho fecha={fecha} productos={productos} puntos={puntos} />
+
+        <EnvioPedidos fecha={fecha} productos={productos} />
 
       <MermasResumen fecha={fecha} productos={productos} />
 
