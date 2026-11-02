@@ -10,6 +10,7 @@ import MermasResumen from "@/components/MermasResumen";
 import InsumosProduccion from "@/components/InsumosProduccion";
 import EnvioPedidos from "@/components/EnvioPedidos";
 import ProduccionDia from "@/components/ProduccionDia";
+import Subproductos from "@/components/Subproductos";
 import SalidasTaller from "@/components/SalidasTaller";
 
 type Prod = { id: string; codigo?: string | null; nombre: string };
@@ -68,6 +69,8 @@ function Contenido() {
       </div>
 
       <ProduccionDia fecha={fecha} productos={productos} />
+
+        <Subproductos fecha={fecha} />
 
         <SalidasTaller fecha={fecha} productos={productos} />
 
