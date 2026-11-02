@@ -25,7 +25,7 @@ export default function ProduccionDia({
     setCargando(true);
     const [lot, mer, des, vta, mue] = await Promise.all([
       supabase.from("lotes_produccion").select("producto_id, cantidad_producida").eq("fecha", fecha),
-      supabase.from("mermas").select("producto_id, cantidad, tipo").eq("fecha", fecha).eq("tipo", "proceso"),
+      supabase.from("mermas").select("producto_id, cantidad, tipo").eq("fecha", fecha).eq("tipo", "produccion"),
       supabase.from("despachos").select("punto_venta_id, turno, puntos_venta(tipo), despacho_items(producto_id, cantidad_enviada)").eq("fecha", fecha),
       supabase.from("ventas").select("venta_items(producto_id, cantidad), puntos_venta!inner(codigo)").eq("fecha", fecha).eq("puntos_venta.codigo", "TALLER"),
       supabase.from("mermas").select("producto_id, cantidad").eq("fecha", fecha).eq("tipo", "muestra"),
@@ -89,25 +89,6 @@ export default function ProduccionDia({
       }
     }
 
-    await supabase.from("mermas").delete().eq("fecha", fecha).eq("tipo", "proceso");
-
-    const conMerma = productos.filter((p) => Number(merma[p.id] || 0) > 0);
-    if (conMerma.length) {
-      const { error } = await supabase.from("mermas").insert(
-        conMerma.map((p) => ({
-          fecha,
-          producto_id: p.id,
-          cantidad: Number(merma[p.id]),
-          tipo: "proceso",
-          nota: "Merma de proceso (horneado/armado)",
-        })),
-      );
-      if (error) {
-        setGuardando(false);
-        return setErr(error.message);
-      }
-    }
-
     setGuardando(false);
     setMsg("Producción del día guardada.");
     cargar();
@@ -129,7 +110,7 @@ export default function ProduccionDia({
     <div className="card">
       <h2>Producción del día</h2>
       <p className="sub" style={{ marginTop: -6 }}>
-        Lo que realmente salió del horno. Producido − merma − enviado − ventas de taller = stock.
+        Lo que realmente salió del horno. La merma se registra en \u00abMermas del día\u00bb.
       </p>
 
       {err && <div className="alert err">{err}</div>}
@@ -168,17 +149,7 @@ export default function ProduccionDia({
                       onChange={(e) => setProducido((x) => ({ ...x, [p.id]: e.target.value }))}
                     />
                   </td>
-                  <td className="num">
-                    <input
-                      className="input num"
-                      type="number"
-                      min="0"
-                      step="1"
-                      style={{ width: 70 }}
-                      value={merma[p.id] ?? ""}
-                      onChange={(e) => setMerma((x) => ({ ...x, [p.id]: e.target.value }))}
-                    />
-                  </td>
+                  <td className="num">{mer || "—"}</td>
                   <td className="num">{env || "—"}</td>
                   <td className="num">{sal || "—"}</td>
                   <td className="num" style={{ color: stock < 0 ? "var(--danger)" : stock > 0 ? "var(--warn)" : "var(--ok)" }}>
