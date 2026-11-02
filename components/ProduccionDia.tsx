@@ -15,6 +15,7 @@ export default function ProduccionDia({
   const [producido, setProducido] = useState<Record<string, string>>({});
   const [merma, setMerma] = useState<Record<string, string>>({});
   const [enviado, setEnviado] = useState<Record<string, number>>({});
+  const [salidas, setSalidas] = useState<Record<string, number>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -22,10 +23,12 @@ export default function ProduccionDia({
 
   const cargar = useCallback(async () => {
     setCargando(true);
-    const [lot, mer, des] = await Promise.all([
+    const [lot, mer, des, vta, mue] = await Promise.all([
       supabase.from("lotes_produccion").select("producto_id, cantidad_producida").eq("fecha", fecha),
       supabase.from("mermas").select("producto_id, cantidad, tipo").eq("fecha", fecha).eq("tipo", "proceso"),
       supabase.from("despachos").select("punto_venta_id, turno, puntos_venta(tipo), despacho_items(producto_id, cantidad_enviada)").eq("fecha", fecha),
+      supabase.from("ventas").select("venta_items(producto_id, cantidad), puntos_venta!inner(codigo)").eq("fecha", fecha).eq("puntos_venta.codigo", "TALLER"),
+      supabase.from("mermas").select("producto_id, cantidad").eq("fecha", fecha).eq("tipo", "muestra"),
     ]);
 
     const p: Record<string, string> = {};
@@ -44,6 +47,18 @@ export default function ProduccionDia({
       });
     });
     setEnviado(e);
+
+    const sa: Record<string, number> = {};
+    ((vta.data ?? []) as any[]).forEach((v: any) => {
+      ((v.venta_items ?? []) as any[]).forEach((it: any) => {
+        sa[it.producto_id] = (sa[it.producto_id] ?? 0) + Number(it.cantidad);
+      });
+    });
+    ((mue.data ?? []) as any[]).forEach((m: any) => {
+      sa[m.producto_id] = (sa[m.producto_id] ?? 0) + Number(m.cantidad);
+    });
+    setSalidas(sa);
+
     setCargando(false);
   }, [fecha]);
 
@@ -114,7 +129,7 @@ export default function ProduccionDia({
     <div className="card">
       <h2>Producción del día</h2>
       <p className="sub" style={{ marginTop: -6 }}>
-        Lo que realmente salió del horno. Producido − merma − enviado = stock en taller.
+        Lo que realmente salió del horno. Producido − merma − enviado − ventas de taller = stock.
       </p>
 
       {err && <div className="alert err">{err}</div>}
@@ -128,6 +143,7 @@ export default function ProduccionDia({
               <th className="num">Producido</th>
               <th className="num">Merma</th>
               <th className="num">Enviado</th>
+              <th className="num">Taller</th>
               <th className="num">Stock</th>
             </tr>
           </thead>
@@ -136,7 +152,8 @@ export default function ProduccionDia({
               const prod = Number(producido[p.id] || 0);
               const mer = Number(merma[p.id] || 0);
               const env = enviado[p.id] ?? 0;
-              const stock = prod - mer - env;
+              const sal = salidas[p.id] ?? 0;
+              const stock = prod - mer - env - sal;
               return (
                 <tr key={p.id}>
                   <td><strong>{p.codigo ?? p.nombre}</strong></td>
@@ -163,6 +180,7 @@ export default function ProduccionDia({
                     />
                   </td>
                   <td className="num">{env || "—"}</td>
+                  <td className="num">{sal || "—"}</td>
                   <td className="num" style={{ color: stock < 0 ? "var(--danger)" : stock > 0 ? "var(--warn)" : "var(--ok)" }}>
                     {prod > 0 || env > 0 ? numero(stock) : "—"}
                   </td>
