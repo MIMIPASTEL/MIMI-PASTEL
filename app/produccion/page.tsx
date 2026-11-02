@@ -84,7 +84,7 @@ function Contenido() {
 
         <EnvioPedidos fecha={fecha} productos={productos} />
 
-      <MermasResumen fecha={fecha} productos={productos} />
+      
 
         <InsumosProduccion fecha={fecha} />
     </>
