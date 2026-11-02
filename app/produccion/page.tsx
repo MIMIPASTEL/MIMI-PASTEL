@@ -10,6 +10,7 @@ import MermasResumen from "@/components/MermasResumen";
 import InsumosProduccion from "@/components/InsumosProduccion";
 import EnvioPedidos from "@/components/EnvioPedidos";
 import ProduccionDia from "@/components/ProduccionDia";
+import SalidasTaller from "@/components/SalidasTaller";
 
 type Prod = { id: string; codigo?: string | null; nombre: string };
 type Punto = { id: string; codigo: string; nombre: string; es_fijo: boolean; turno: number | null };
@@ -67,6 +68,8 @@ function Contenido() {
       </div>
 
       <ProduccionDia fecha={fecha} productos={productos} />
+
+        <SalidasTaller fecha={fecha} productos={productos} />
 
         <SobrantesRevision
         fecha={fecha}
