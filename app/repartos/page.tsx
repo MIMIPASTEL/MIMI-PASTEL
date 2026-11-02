@@ -135,15 +135,22 @@ export default function RepartosPage() {
         supabase.from("productos").select("id, codigo, nombre, orden").in("id", ids),
         supabase
           .from("precios_cliente")
-          .select("producto_id, precio, tipo_cliente, presentaciones!inner(nombre)"),
+          .select("producto_id, precio, tipo_cliente, presentaciones!inner(nombre, es_default)"),
       ]);
 
-      const precios: Record<string, number> = {};
+      const unidad: Record<string, number> = {};
+      const otro: Record<string, number> = {};
       ((pc.data ?? []) as any[]).forEach((x) => {
-        if (x.presentaciones?.nombre === "Unidad" && x.tipo_cliente === "distribuidor") {
-          precios[x.producto_id] = Number(x.precio);
+        if (x.tipo_cliente !== "distribuidor") return;
+        if (x.presentaciones?.nombre === "Unidad") {
+          unidad[x.producto_id] = Number(x.precio);
+        } else {
+          const actual = otro[x.producto_id];
+          const valor = Number(x.precio);
+          if (actual === undefined || valor > actual) otro[x.producto_id] = valor;
         }
       });
+      const precios: Record<string, number> = { ...otro, ...unidad };
 
       const lista = ((pr.data ?? []) as any[])
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
