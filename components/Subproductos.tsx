@@ -4,13 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, numero } from "@/lib/supabase";
 
 const ITEMS = [
-  { clave: "plancha_hojaldre", nombre: "Planchas de hojaldre", unidad: "planchas" },
-  { clave: "masa_empanada", nombre: "Masa de empanada", unidad: "kg" },
-  { clave: "relleno_carne", nombre: "Relleno de carne", unidad: "porciones" },
-  { clave: "relleno_pollo", nombre: "Relleno de pollo", unidad: "porciones" },
-  { clave: "conos_horneados", nombre: "Conos horneados", unidad: "unidades" },
-  { clave: "plancha_pionono", nombre: "Plancha de pionono", unidad: "planchas" },
-  { clave: "masa_queque", nombre: "Masa de queque", unidad: "molde" },
+  { clave: "plancha_milhoja", nombre: "Planchas de milhojas", unidad: "planchas" },
+  { clave: "bandeja_chocolate", nombre: "Bandeja de chocolate", unidad: "bandejas" },
 ];
 
 type Fila = { clave: string; producido: string; usado: string; merma: string };
@@ -167,7 +162,7 @@ export default function Subproductos({ fecha }: { fecha: string }) {
       </button>
 
       <p className="sub" style={{ margin: "8px 4px 0", fontSize: 12 }}>
-        Ejemplo milhojas: produces 12 planchas, usas 8 para armar y 1 se quemó → quedan 3 para mañana.
+        Ejemplo milhojas: produces 12 planchas, usas 8 para armar y 1 se quemó, quedan 3.
       </p>
     </div>
   );
