@@ -5,7 +5,7 @@ import { supabase, numero } from "@/lib/supabase";
 
 const ITEMS = [
   { clave: "plancha_milhoja", nombre: "Planchas de milhojas", unidad: "planchas" },
-  { clave: "bandeja_chocolate", nombre: "Bandeja de chocolate", unidad: "bandejas" },
+  { clave: "bandeja_pionono", nombre: "Bandeja de pionono", unidad: "bandejas" },
 ];
 
 type Fila = { clave: string; producido: string; usado: string; merma: string };
